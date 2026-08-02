@@ -1,0 +1,6 @@
+_prepared-site/
+.wrangler/
+.dev.vars
+node_modules/
+dist/
+build/

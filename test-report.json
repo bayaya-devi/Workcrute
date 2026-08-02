@@ -1,0 +1,27 @@
+{
+  "routes": [
+    "apply",
+    "auth",
+    "home"
+  ],
+  "missing_routes": [],
+  "scroll_targets": [
+    "concept",
+    "contact",
+    "process"
+  ],
+  "missing_scroll_targets": [],
+  "images": [
+    "assets/logo-workrute.png",
+    "assets/logo-workrute.png",
+    "assets/logo-workrute.png",
+    "assets/logo-workrute.png"
+  ],
+  "missing_images": [],
+  "has_lang_dropdown": true,
+  "has_loading_page": true,
+  "has_rgpd": true,
+  "has_honeypot": true,
+  "has_video": true,
+  "has_logo_splash": true
+}
