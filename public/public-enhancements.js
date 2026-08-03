@@ -2,7 +2,7 @@
   const style = document.createElement('style');
   style.textContent = `
     .head { background: transparent; border-color: transparent; transition: background-color 180ms ease, backdrop-filter 180ms ease, border-color 180ms ease, box-shadow 180ms ease; }
-    .head.is-scrolled { background: rgba(255,255,255,.88); backdrop-filter: blur(14px); border-color: #dce5e0; box-shadow: 0 4px 18px rgba(16,59,53,.05); }
+    .head.is-scrolled { background: rgba(255,255,255,.88); backdrop-filter: blur(14px); border-color: #cbedf9; box-shadow: 0 4px 18px rgba(16,59,53,.05); }
     button, [data-public], [data-app], .role, .job { cursor: pointer; transition: transform 180ms ease, background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease; }
     .btn:hover, .role:hover, .job:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(16,59,53,.10); }
     .btn:active, .role:active { transform: translateY(0); }
