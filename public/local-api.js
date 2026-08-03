@@ -1,7 +1,7 @@
 (() => {
   const storageKey = "workcrute.local.preview.v1";
   const questions = [{ field_key: "domain", labels: { fr: "Domaine recherche" }, is_required: 1, options: ["Informatique et numerique", "Commerce et vente", "Finance et comptabilite", "Ressources humaines", "Marketing et communication", "Industrie et ingenierie", "Logistique et transport", "Sante", "Hotellerie et tourisme", "Education et formation", "Autre"] }];
-  const read = () => JSON.parse(localStorage.getItem(storageKey) || '{"accounts":[],"session":null,"documents":[],"notifications":[]}');
+  const read = () => JSON.parse(localStorage.getItem(storageKey) || '{"accounts":[],"session":null,"documents":[],"notifications":[],"jobs":[],"applications":[]}');
   const write = value => localStorage.setItem(storageKey, JSON.stringify(value));
   const id = () => crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random();
   const error = message => { throw new Error(message); };
@@ -24,6 +24,10 @@
     const account = current(state); if (!account) error("Connectez-vous pour continuer.");
     if (path === "/api/auth/me") return { user: { id: account.id, email: account.email, role: account.role }, profile: profileFor(account) };
     if (path === "/api/questionnaire") return { questions };
+    if (path === "/api/jobs" && !options.method) return { items: state.jobs.filter(job => job.status === "published") };
+    if (path === "/api/jobs" && options.method === "POST") { if (account.role !== "recruiter") error("Acces recruteur requis."); const required=["title","domain","description","contractType","city","workMode"]; if (!required.every(key => body[key])) error("Veuillez renseigner les champs obligatoires."); const job={id:id(),recruiter_user_id:account.id,title:body.title,domain:body.domain,description:body.description,contract_type:body.contractType,city:body.city,work_mode:body.workMode,company_name:body.companyName || "Votre entreprise",status:body.status === "published" ? "published" : "draft",published_at:new Date().toISOString()}; state.jobs.unshift(job); write(state); return { job:{id:job.id,status:job.status} }; }
+    if (path === "/api/applications" && !options.method) return { items: state.applications.filter(item => item.candidate_user_id === account.id) };
+    if (path === "/api/applications" && options.method === "POST") { if (account.role !== "candidate") error("Acces demandeur requis."); if (state.applications.some(item => item.candidate_user_id === account.id && item.job_offer_id === body.jobId)) error("Vous avez deja postule a cette offre."); const job=state.jobs.find(item => item.id === body.jobId && item.status === "published"); if (!job) error("Offre introuvable."); const application={id:id(),job_offer_id:job.id,candidate_user_id:account.id,status:"submitted",title:job.title,company_name:job.company_name,created_at:new Date().toISOString()};state.applications.unshift(application);write(state);return {application}; }
     if (path === "/api/profile" && options.method === "PATCH") { account.profile = { ...(account.profile || {}), city: body.city || "", region: body.region || "", availability: body.availability || "", professional_title: body.professionalTitle || body.professional_title || "", introduction: body.introduction || "", questionnaire_answers: JSON.stringify(body.questionnaireAnswers || {}) }; write(state); return { profile: profileFor(account) }; }
     if (path === "/api/documents" && !options.method) return { documents: state.documents.filter(doc => doc.user_id === account.id) };
     if (path === "/api/notifications" && !options.method) return { notifications: state.notifications.filter(item => item.user_id === account.id) };
