@@ -1,0 +1,22 @@
+import { execFileSync } from 'node:child_process';
+import { randomBytes, pbkdf2Sync } from 'node:crypto';
+
+if (process.env.ENVIRONMENT === 'production') throw new Error('Demo seed is disabled in production.');
+const required=['DEMO_RECRUITER_EMAIL','DEMO_RECRUITER_PASSWORD','DEMO_CANDIDATE_EMAIL','DEMO_CANDIDATE_PASSWORD','DEMO_ADMIN_EMAIL','DEMO_ADMIN_PASSWORD'];
+for (const key of required) if (!process.env[key]) throw new Error('Missing '+key);
+const database=process.env.D1_DATABASE_NAME || 'workcrute';
+const quote=value=>String(value).replaceAll("'","''");
+const hash=(password,salt)=>pbkdf2Sync(password,salt,310000,32,'sha256').toString('base64');
+const account=(role,email,password,first,last,phone)=>{const id=crypto.randomUUID(),salt=randomBytes(24).toString('base64url');return {id,role,email,passwordHash:hash(password,salt),salt,first,last,phone};};
+const recruiter=account('recruiter',process.env.DEMO_RECRUITER_EMAIL,process.env.DEMO_RECRUITER_PASSWORD,'Yassine','El Mansouri','+212600000101');
+const candidate=account('candidate',process.env.DEMO_CANDIDATE_EMAIL,process.env.DEMO_CANDIDATE_PASSWORD,'Sara','Benali','+212600000102');
+const admin=account('admin',process.env.DEMO_ADMIN_EMAIL,process.env.DEMO_ADMIN_PASSWORD,'Admin','Demo','+212600000103');
+const users=[recruiter,candidate,admin];
+let sql='BEGIN;';
+for(const user of users) sql+=`INSERT INTO users(id,email,password_hash,password_salt,role,email_verified_at) VALUES ('${user.id}','${quote(user.email)}','${quote(user.passwordHash)}','${quote(user.salt)}','${user.role}',CURRENT_TIMESTAMP);`;
+sql+=`INSERT INTO recruiter_profiles(user_id,first_name,last_name,phone,company_name,job_title,company_sector,city) VALUES ('${recruiter.id}','Yassine','El Mansouri','${recruiter.phone}','Atlas Digital','Responsable du recrutement','Informatique et services numeriques','Rabat');`;
+sql+=`INSERT INTO candidate_profiles(user_id,first_name,last_name,phone,city,preferred_language,professional_title,availability,questionnaire_answers) VALUES ('${candidate.id}','Sara','Benali','${candidate.phone}','Rabat','fr','Developpeuse front-end junior','immediate','{"domain":"Informatique et developpement","experience":"Junior"}');`;
+for(const user of users) sql+=`INSERT INTO notifications(id,user_id,type,title,body) VALUES ('${crypto.randomUUID()}','${user.id}','account','Bienvenue sur Workcrute','Compte de demonstration pret.');`;
+sql+='COMMIT;';
+execFileSync('npx',['wrangler','d1','execute',database,'--remote','--command',sql],{stdio:'inherit',env:process.env});
+console.log('Demo accounts seeded.');
