@@ -68,7 +68,7 @@
     document.querySelector('meta[property="og:title"]').content = text.meta_title; document.querySelector('meta[property="og:description"]').content = text.meta_description;
     document.querySelectorAll("[data-i18n]").forEach(node => { if (text[node.dataset.i18n]) node.textContent = text[node.dataset.i18n]; });
     document.querySelectorAll("[data-i18n-aria]").forEach(node => node.setAttribute("aria-label", text[node.dataset.i18nAria]));
-    document.querySelectorAll("[data-language]").forEach(select => { select.value = lang; select.options[0].text = "Francais"; select.options[1].text = "English"; select.options[2].text = "\u0627\u0644\u0639\u0631\u0628\u064a\u0629"; });
+    document.querySelectorAll("[data-language]").forEach(select => { select.value = lang; select.options[0].text = "Fran\u00e7ais"; select.options[1].text = "English"; select.options[2].text = "\u0627\u0644\u0639\u0631\u0628\u064a\u0629"; }); window.dispatchEvent(new CustomEvent("workcrute:languagechange", { detail: { language: lang } }));
   }
   document.querySelectorAll("[data-language]").forEach(select => select.addEventListener("change", () => apply(select.value)));
   document.getElementById("year").textContent = new Date().getFullYear(); apply(detect()); window.workcruteHomeI18n = { apply, locales };
