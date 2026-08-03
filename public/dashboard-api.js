@@ -1,5 +1,6 @@
 (() => {
   const call = async (path, options = {}) => {
+    if (location.hostname.endsWith("github.io")) return window.workcruteLocalApi.request(path, options);
     const response = await fetch(path, { credentials: "same-origin", headers: { "content-type": "application/json", ...(options.headers || {}) }, ...options });
     if (response.status === 204) return null;
     const body = await response.json().catch(() => null);
@@ -55,7 +56,8 @@
     document.querySelector("#live-document")?.addEventListener("submit", async event => {
       event.preventDefault();
       const form = new FormData(event.currentTarget);
-      const response = await fetch("/api/documents", { method:"POST", credentials:"same-origin", body:form });
+      const response = location.hostname.endsWith("github.io") ? { ok:true, json:async()=>({}) } : await fetch("/api/documents", { method:"POST", credentials:"same-origin", body:form });
+      if (location.hostname.endsWith("github.io")) await window.workcruteLocalApi.uploadDocument(form);
       if (!response.ok) return toast((await response.json().catch(()=>({}))).error || "Impossible d’ajouter ce document.");
       toast("Document ajouté."); hydrate("candidate-profile");
     });
