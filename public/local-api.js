@@ -11,7 +11,7 @@
     const state = read(); const body = typeof options.body === "string" ? JSON.parse(options.body || "{}") : options.body || {};
     if (path === "/api/auth/register" && options.method === "POST") {
       if (state.accounts.some(account => account.email === String(body.email || "").toLowerCase())) error("Un compte existe deja avec cette adresse email.");
-      const account = { id: id(), email: String(body.email).toLowerCase(), password: body.password, role: body.role === "recruiter" ? "recruiter" : "candidate", firstName: body.firstName, lastName: body.lastName, phone: body.phone, profile: {} };
+      const account = { id: id(), email: String(body.email).toLowerCase(), password: body.password, role: ["candidate","recruiter","admin"].includes(body.role) ? body.role : "candidate", firstName: body.firstName, lastName: body.lastName, phone: body.phone, profile: {} };
       state.accounts.push(account); state.session = account.id; state.notifications.unshift({ id: id(), user_id: account.id, title: "Bienvenue sur Workcrute", body: "Votre compte est pret.", is_read: 0 }); write(state);
       return { user: { id: account.id, email: account.email, role: account.role } };
     }
