@@ -1,2 +1,1 @@
-# Keep direct deep links working on Cloudflare Pages.
-/* /index.html 200
+# Static pages are served from their own route directories.
