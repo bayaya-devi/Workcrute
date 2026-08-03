@@ -10,6 +10,7 @@
   async function request(path, options = {}) {
     const state = read(); const body = typeof options.body === "string" ? JSON.parse(options.body || "{}") : options.body || {};
     if (path === "/api/auth/register" && options.method === "POST") {
+      if (!["candidate", "recruiter"].includes(body.role)) error("Type de compte invalide.");
       if (state.accounts.some(account => account.email === String(body.email || "").toLowerCase())) error("Un compte existe deja avec cette adresse email.");
       const account = { id: id(), email: String(body.email).toLowerCase(), password: body.password, role: ["candidate","recruiter"].includes(body.role) ? body.role : "candidate", firstName: body.firstName, lastName: body.lastName, phone: body.phone, profile: {} };
       state.accounts.push(account); state.session = account.id; state.notifications.unshift({ id: id(), user_id: account.id, title: "Bienvenue sur Workcrute", body: "Votre compte est pret.", is_read: 0 }); write(state);
