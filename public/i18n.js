@@ -19,7 +19,8 @@
     document.querySelectorAll('[data-public="companies"]').forEach(el => el.textContent = t.recruiters);
     document.querySelectorAll('[data-public="login"]').forEach(el => el.textContent = t.auth);
   }
-  select.value = localStorage.getItem('wc_language') || 'fr';
+  const saved = localStorage.getItem('wc_language');
+  select.value = labels[saved] ? saved : 'fr';
   select.addEventListener('change', () => apply(select.value));
   apply(select.value);
 })();
