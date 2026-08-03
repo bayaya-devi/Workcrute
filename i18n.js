@@ -1,1 +1,26 @@
-(()=>{const translations={fr:{home:"Accueil",candidates:"Pour les candidats",recruiters:"Pour les recruteurs",auth:"Connexion / Inscription"},en:{home:"Home",candidates:"For candidates",recruiters:"For recruiters",auth:"Sign in / Register"},ar:{home:"الرئيسية",candidates:"للمترشحين",recruiters:"للموظفين",auth:"تسجيل الدخول / إنشاء حساب"},tzm:{home:"ⴰⵙⵏⵓⴱⴳ",candidates:"ⵉ ⵉⵎⵙⵙⵓⵜⵔⵏ",recruiters:"ⵉ ⵉⵎⵙⵙⵓⵜⵔⵏ ⵏ ⵓⵎⴰⵀⵉⵍ",auth:"ⴰⵏⵙⵙⵓⵎ / ⴰⵙⴽⵔ ⵏ ⵓⵎⵉⴷⴰⵏ"}};let language=localStorage.getItem("wc_language")||"fr";function apply(lang){language=lang;localStorage.setItem("wc_language",lang);document.documentElement.lang=lang;document.documentElement.dir=lang==="ar"?"rtl":"ltr";const t=translations[lang];document.querySelectorAll("[data-public]").forEach(e=>{if(e.dataset.public==="home")e.textContent=t.home;if(e.dataset.public==="how")e.textContent=t.candidates;if(e.dataset.public==="companies")e.textContent=t.recruiters});document.querySelectorAll("[data-public='login'],[data-public='signup']").forEach(e=>e.textContent=t.auth);document.querySelector("#wc-language-current").textContent=lang==="tzm"?"ⵜⴰⵎⴰⵣⵉⵖⵜ":lang.toUpperCase());}const select=document.createElement("div");select.innerHTML='<select id="wc-language-current" aria-label="Langue" style="height:38px;border:1px solid #cbd7d1;border-radius:5px;background:#fff;padding:0 8px;cursor:pointer"><option value="fr">FR</option><option value="ar">العربية</option><option value="en">EN</option><option value="tzm">ⵜⴰⵎⴰⵣⵉⵖⵜ</option></select>';const actions=document.querySelector(".actions");if(actions)actions.prepend(select);const input=document.querySelector("#wc-language-current");input.value=language;input.addEventListener("change",e=>apply(e.target.value));apply(language);})();
+﻿(() => {
+  const labels = {
+    fr: { home: 'Accueil', candidates: 'Pour les candidats', recruiters: 'Pour les recruteurs', auth: 'Connexion / Inscription' },
+    en: { home: 'Home', candidates: 'For candidates', recruiters: 'For recruiters', auth: 'Sign in / Register' },
+    ar: { home: 'الرئيسية', candidates: 'للمترشحين', recruiters: 'للموظفين', auth: 'تسجيل الدخول / إنشاء حساب' },
+    tzm: { home: 'ⴰⵙⵏⵓⴱⴳ', candidates: 'ⵉ ⵉⵎⵙⵙⵓⵜⵔⵏ', recruiters: 'ⵉ ⵉⵎⵙⵙⵓⵜⵔⵏ ⵏ ⵓⵎⴰⵀⵉⵍ', auth: 'ⴰⵏⵙⵙⵓⵎ / ⴰⵙⴽⵔ ⵏ ⵓⵎⵉⴷⴰⵏ' }
+  };
+  const select = document.createElement('select');
+  select.id = 'wc-language';
+  select.setAttribute('aria-label', 'Langue');
+  select.innerHTML = '<option value="fr">FR</option><option value="ar">العربية</option><option value="en">EN</option><option value="tzm">ⵜⴰⵎⴰⵣⵉⵖⵜ</option>';
+  document.querySelector('.actions')?.prepend(select);
+  function apply(language) {
+    localStorage.setItem('wc_language', language);
+    document.documentElement.lang = language;
+    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
+    const t = labels[language];
+    document.querySelectorAll('[data-public="home"]').forEach(el => el.textContent = t.home);
+    document.querySelectorAll('[data-public="how"]').forEach(el => el.textContent = t.candidates);
+    document.querySelectorAll('[data-public="companies"]').forEach(el => el.textContent = t.recruiters);
+    document.querySelectorAll('[data-public="login"], [data-public="signup"]').forEach(el => el.textContent = t.auth);
+  }
+  select.value = localStorage.getItem('wc_language') || 'fr';
+  select.addEventListener('change', () => apply(select.value));
+  apply(select.value);
+})();
