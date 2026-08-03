@@ -4,3 +4,7 @@ _prepared-site/
 node_modules/
 dist/
 build/
+node_modules/
+.wrangler/
+.dev.vars
+.env

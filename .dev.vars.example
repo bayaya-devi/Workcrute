@@ -1,0 +1,4 @@
+﻿SESSION_PEPPER=replace-with-a-long-random-secret
+TURNSTILE_SECRET_KEY=optional-turnstile-secret
+EMAIL_PROVIDER_API_KEY=configure-with-your-email-provider
+EMAIL_FROM=Workcrute <no-reply@your-domain.ma>

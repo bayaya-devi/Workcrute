@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "workcrute",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": { "directory": ".", "binding": "ASSETS", "not_found_handling": "single-page-application" },
+  "vars": { "APP_ORIGIN": "https://workcrute.pages.dev", "ENVIRONMENT": "production" },
+  "d1_databases": [{ "binding": "DB", "database_name": "workcrute", "database_id": "REPLACE_WITH_D1_DATABASE_ID", "migrations_dir": "migrations" }],
+  "r2_buckets": [{ "binding": "DOCUMENTS", "bucket_name": "workcrute-documents" }],
+  "observability": { "enabled": true, "head_sampling_rate": 1 }
+}
