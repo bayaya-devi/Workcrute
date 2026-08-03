@@ -2,7 +2,7 @@
   const copy = {
     fr: {
       kicker: "Ils nous font confiance", title: "Des parcours qui avancent",
-      intro: "Six retours d'exp\u00e9rience de candidats et de recruteurs.",
+      intro: "",
       previous: "Afficher l'avis pr\u00e9c\u00e9dent", next: "Afficher l'avis suivant",
       dot: "Afficher l'avis", status: "Avis {current} sur 6",
       reviews: [
@@ -16,7 +16,7 @@
     },
     en: {
       kicker: "Trusted by our users", title: "Journeys that move forward",
-      intro: "Six perspectives from candidates and recruiters.", previous: "Show previous review",
+      intro: "", previous: "Show previous review",
       next: "Show next review", dot: "Show review", status: "Review {current} of 6",
       reviews: [
         ["Sophie Martin", "HR Manager - Novalech", "Workcrute helped us find relevant profiles quickly without making our recruitment process more complex."],
@@ -29,7 +29,7 @@
     },
     ar: {
       kicker: "\u062a\u062c\u0627\u0631\u0628 \u0645\u0633\u062a\u062e\u062f\u0645\u064a\u0646\u0627", title: "\u0645\u0633\u0627\u0631\u0627\u062a \u062a\u062a\u0642\u062f\u0651\u0645",
-      intro: "\u0633\u062a\u0629 \u0622\u0631\u0627\u0621 \u0645\u0646 \u0627\u0644\u0645\u062a\u0642\u062f\u0651\u0645\u064a\u0646 \u0648\u0627\u0644\u0645\u0648\u0638\u0651\u0641\u064a\u0646.",
+      intro: "",
       previous: "\u0639\u0631\u0636 \u0627\u0644\u0631\u0623\u064a \u0627\u0644\u0633\u0627\u0628\u0642", next: "\u0639\u0631\u0636 \u0627\u0644\u0631\u0623\u064a \u0627\u0644\u062a\u0627\u0644\u064a",
       dot: "\u0639\u0631\u0636 \u0627\u0644\u0631\u0623\u064a", status: "\u0627\u0644\u0631\u0623\u064a {current} \u0645\u0646 6",
       reviews: [

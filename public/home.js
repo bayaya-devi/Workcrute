@@ -17,7 +17,7 @@
   addEventListener("scroll", () => { if (!ticking) { requestAnimationFrame(update); ticking = true; } }, { passive: true });
   update();
   const observer = new IntersectionObserver(entries => entries.forEach(entry => {
-    if (entry.isIntersecting) { entry.target.classList.add("is-visible"); observer.unobserve(entry.target); }
+    entry.target.classList.toggle("is-visible", entry.isIntersecting);
   }), { threshold: .16 });
   document.querySelectorAll(".reveal,[data-timeline]").forEach(node => reduced ? node.classList.add("is-visible") : observer.observe(node));
 })();
