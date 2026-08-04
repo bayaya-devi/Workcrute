@@ -37,6 +37,8 @@
     if (path === "/api/documents" && !options.method) return { documents: state.documents.filter(doc => doc.user_id === account.id) };
     if (path === "/api/notifications" && !options.method) return { notifications: state.notifications.filter(item => item.user_id === account.id) };
     if (path === "/api/notifications" && options.method === "POST") { state.notifications.forEach(item => { if (item.user_id === account.id) item.is_read = 1; }); write(state); return { ok: true }; }
+    if (path.startsWith("/api/notifications/") && options.method === "PATCH") { const item=state.notifications.find(note=>note.id===path.split("/").pop() && note.user_id===account.id); if(item) item.is_read=body.read?1:0; write(state); return {ok:true}; }
+    if (path.startsWith("/api/notifications/") && options.method === "DELETE") { state.notifications=state.notifications.filter(note=>!(note.id===path.split("/").pop() && note.user_id===account.id)); write(state); return {ok:true}; }
     if (path.startsWith("/api/documents/") && options.method === "DELETE") { state.documents = state.documents.filter(doc => !(doc.id === path.split("/").pop() && doc.user_id === account.id)); write(state); return { ok: true }; }
     error("Cette action n'est pas disponible dans l'apercu local.");
   }
