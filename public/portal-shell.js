@@ -14,7 +14,7 @@
   const link=([label,href])=>'<a href="'+root+href+'" data-go="'+href+'"'+(current===href||current.startsWith(href+"/")?' aria-current="page"':"")+'>'+label+'</a>';
   const header=document.createElement("header");
   header.className="app-header";
-  header.innerHTML='<a class="brand" href="'+root+'/" data-go="/"><img src="'+root+'/assets/logo-workrute.png" alt="Workcrute"></a><nav class="app-nav" aria-label="Navigation principale">'+links.map(link).join("")+'</nav><div class="app-header-actions"><span class="app-role">'+roleLabel+'</span><select class="language" data-language aria-label="Langue"><option value="fr">FR</option><option value="en">EN</option><option value="ar">AR</option></select><button class="button secondary" data-logout>D\u00e9connexion</button></div>';
+  header.innerHTML='<a class="brand" href="'+root+'/" data-go="/"><img src="'+root+'/assets/logo-workrute.png" alt="Workcrute"></a><nav class="app-nav" aria-label="Navigation principale">'+links.map(link).join("")+'</nav><div class="app-header-actions"><span class="app-role">'+roleLabel+'</span><button class="button secondary" data-logout>D\u00e9connexion</button></div>';
   document.body.prepend(header);
   const mobile=document.createElement("nav");mobile.className="mobile-app-nav";mobile.setAttribute("aria-label","Navigation mobile");mobile.innerHTML=links.slice(0,5).map(link).join("");document.body.append(mobile);
   document.addEventListener("click",async event=>{const button=event.target.closest("[data-logout]");if(!button)return;event.preventDefault();button.disabled=true;button.textContent="D\u00e9connexion...";try{await window.workcrute?.api("/api/auth/logout",{method:"POST"});}finally{location.href=root+"/connexion";}});
