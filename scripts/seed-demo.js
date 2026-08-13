@@ -6,7 +6,7 @@ const required=['DEMO_RECRUITER_EMAIL','DEMO_RECRUITER_PASSWORD','DEMO_CANDIDATE
 for (const key of required) if (!process.env[key]) throw new Error('Missing '+key);
 const database=process.env.D1_DATABASE_NAME || 'workcrute';
 const quote=value=>String(value).replaceAll("'","''");
-const hash=(password,salt)=>pbkdf2Sync(password,salt,310000,32,'sha256').toString('base64');
+const hash=(password,salt)=>pbkdf2Sync(password,salt,100000,32,'sha256').toString('base64');
 const account=(role,email,password,first,last,phone)=>{const id=crypto.randomUUID(),salt=randomBytes(24).toString('base64url');return {id,role,email,passwordHash:hash(password,salt),salt,first,last,phone};};
 const recruiter=account('recruiter',process.env.DEMO_RECRUITER_EMAIL,process.env.DEMO_RECRUITER_PASSWORD,'Yassine','El Mansouri','+212600000101');
 const candidate=account('candidate',process.env.DEMO_CANDIDATE_EMAIL,process.env.DEMO_CANDIDATE_PASSWORD,'Sara','Benali','+212600000102');

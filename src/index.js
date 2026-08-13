@@ -115,7 +115,8 @@ async function hashPassword(password, salt) {
     {
       name: "PBKDF2",
       salt: encoder.encode(salt),
-      iterations: 310000,
+      // Cloudflare Workers Web Crypto currently accepts at most 100,000 PBKDF2 iterations.
+      iterations: 100000,
       hash: "SHA-256",
     },
     key,
