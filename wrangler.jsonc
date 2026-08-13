@@ -8,6 +8,5 @@
   "vars": { "APP_ORIGIN": "https://workcrute.pages.dev", "ENVIRONMENT": "production" },
   "secrets": { "required": ["SESSION_PEPPER", "ADMIN_AUTH_SECRET_1", "ADMIN_AUTH_SECRET_2"] },
   "d1_databases": [{ "binding": "DB", "database_name": "workcrute", "database_id": "f5947d57-a281-4cc6-b878-724f647881e1", "migrations_dir": "migrations" }],
-  "r2_buckets": [{ "binding": "DOCUMENTS", "bucket_name": "workcrute-documents" }],
   "observability": { "enabled": true, "head_sampling_rate": 1 }
 }

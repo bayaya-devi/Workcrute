@@ -412,6 +412,52 @@ async function updateProfile(request, env) {
   return me(request, env);
 }
 
+async function storeDocument(env, documentId, storageKey, file, owner, kind) {
+  if (env.DOCUMENTS) {
+    await env.DOCUMENTS.put(storageKey, file.stream(), {
+      httpMetadata: { contentType: file.type },
+      customMetadata: { owner, kind },
+    });
+    return;
+  }
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const chunkSize = 512 * 1024;
+  const statements = [];
+  for (let offset = 0, index = 0; offset < bytes.length; offset += chunkSize, index += 1)
+    statements.push(
+      env.DB.prepare(
+        "INSERT INTO document_chunks(document_id,chunk_index,data) VALUES(?,?,?)",
+      ).bind(documentId, index, bytes.slice(offset, offset + chunkSize)),
+    );
+  if (statements.length) await env.DB.batch(statements);
+}
+async function loadDocument(env, documentId, storageKey) {
+  if (env.DOCUMENTS) {
+    const object = await env.DOCUMENTS.get(storageKey);
+    return object?.body || null;
+  }
+  const { results = [] } = await env.DB.prepare(
+    "SELECT data FROM document_chunks WHERE document_id=? ORDER BY chunk_index",
+  ).bind(documentId).all();
+  if (!results.length) return null;
+  const chunks = results.map((row) => new Uint8Array(row.data));
+  const size = chunks.reduce((total, chunk) => total + chunk.length, 0);
+  const output = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return output;
+}
+async function removeDocument(env, documentId, storageKey) {
+  if (env.DOCUMENTS) await env.DOCUMENTS.delete(storageKey);
+  else
+    await env.DB.prepare("DELETE FROM document_chunks WHERE document_id=?")
+      .bind(documentId)
+      .run();
+}
+
 async function documents(request, env, path) {
   const user = await requireUser(request, env, ["candidate"]);
   if (path === "/api/documents" && request.method === "GET") {
@@ -438,10 +484,6 @@ async function documents(request, env, path) {
       return bad("Le document doit être un PDF, DOC ou DOCX de moins de 8 Mo.");
     const id = crypto.randomUUID(),
       key = `private/${user.id}/${id}.${ext}`;
-    await env.DOCUMENTS.put(key, file.stream(), {
-      httpMetadata: { contentType: file.type },
-      customMetadata: { owner: user.id, kind },
-    });
     const count = await env.DB.prepare(
       "SELECT COUNT(*) total FROM documents WHERE user_id=? AND kind='cv' AND deleted_at IS NULL",
     )
@@ -453,6 +495,12 @@ async function documents(request, env, path) {
     )
       .bind(id, user.id, kind, key, file.name, file.type, file.size, isDefault)
       .run();
+    try {
+      await storeDocument(env, id, key, file, user.id, kind);
+    } catch (error) {
+      await env.DB.prepare("DELETE FROM documents WHERE id=?").bind(id).run();
+      throw error;
+    }
     await audit(env, user, "document_uploaded", "document", id, { kind });
     return json(
       {
@@ -473,9 +521,9 @@ async function documents(request, env, path) {
       .first();
   if (!doc) return bad("Document introuvable.", 404);
   if (action === "download" && request.method === "GET") {
-    const object = await env.DOCUMENTS.get(doc.storage_key);
-    if (!object) return bad("Fichier introuvable.", 404);
-    return new Response(object.body, {
+    const body = await loadDocument(env, doc.id, doc.storage_key);
+    if (!body) return bad("Fichier introuvable.", 404);
+    return new Response(body, {
       headers: {
         "content-type": doc.content_type,
         "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(doc.original_name)}`,
@@ -493,7 +541,7 @@ async function documents(request, env, path) {
     return json({ ok: true });
   }
   if (!action && request.method === "DELETE") {
-    await env.DOCUMENTS.delete(doc.storage_key);
+    await removeDocument(env, doc.id, doc.storage_key);
     await env.DB.prepare(
       "UPDATE documents SET deleted_at=CURRENT_TIMESTAMP,is_default=0 WHERE id=?",
     )
@@ -1539,9 +1587,9 @@ async function recruiterDocument(request, env, path) {
       .bind(id, user.id)
       .first();
   if (!doc) return bad("Document introuvable.", 404);
-  const object = await env.DOCUMENTS.get(doc.storage_key);
-  if (!object) return bad("Fichier introuvable.", 404);
-  return new Response(object.body, {
+  const body = await loadDocument(env, doc.id, doc.storage_key);
+  if (!body) return bad("Fichier introuvable.", 404);
+  return new Response(body, {
     headers: {
       "content-type": doc.content_type,
       "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(doc.original_name)}`,
@@ -1792,10 +1840,14 @@ async function adminIpHash(request, env) {
     "unavailable";
   return digest(`${forwarded}\u0000${env.SESSION_PEPPER}`);
 }
-function assertAdminOrigin(request) {
+function assertAdminOrigin(request, env) {
   if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return;
   const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin)
+  if (
+    origin &&
+    origin !== new URL(request.url).origin &&
+    origin !== env.APP_ORIGIN
+  )
     throw bad("Origine de requête refusée.", 403);
 }
 async function adminAudit(env, sessionId, action, type, id, before, after, metadata = {}) {
@@ -1873,13 +1925,13 @@ async function adminFor(request, env) {
   return row;
 }
 async function requireAdmin(request, env) {
-  assertAdminOrigin(request);
+  assertAdminOrigin(request, env);
   const session = await adminFor(request, env);
   if (!session) throw bad("Authentification administrateur requise.", 401);
   return session;
 }
 async function adminAuthStepOne(request, env) {
-  assertAdminOrigin(request);
+  assertAdminOrigin(request, env);
   const body = await request.json().catch(() => ({}));
   const ipHash = await adminIpHash(request, env);
   const bucket = `admin-auth:${ipHash}`;
@@ -1901,7 +1953,7 @@ async function adminAuthStepOne(request, env) {
   });
 }
 async function adminAuthStepTwo(request, env) {
-  assertAdminOrigin(request);
+  assertAdminOrigin(request, env);
   const body = await request.json().catch(() => ({}));
   const ipHash = await adminIpHash(request, env);
   const bucket = `admin-auth:${ipHash}`;
@@ -1935,7 +1987,7 @@ async function adminAuthStepTwo(request, env) {
   return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
 }
 async function adminLogout(request, env) {
-  assertAdminOrigin(request);
+  assertAdminOrigin(request, env);
   const raw = cookieValue(request, ADMIN_SESSION_COOKIE);
   const session = await adminFor(request, env);
   if (raw)
