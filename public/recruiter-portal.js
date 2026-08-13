@@ -10,7 +10,7 @@
     const [me,jobs,notifications] = await Promise.all([api("/api/auth/me"),api("/api/recruiter/jobs").catch(()=>api("/api/jobs")),api("/api/notifications")]);
     const listed=jobs.items||[];
     const own=listed.filter(job=>!job.recruiter_user_id||job.recruiter_user_id===me.user.id);
-    return {me,jobs:own,notifications:notifications.notifications||notifications||[]};
+    return {me,jobs:own,notifications:notifications.items||notifications.notifications||notifications||[]};
   }
   async function dashboard() {
     const d=await load(), profile=d.me.profile||{}, active=d.jobs.filter(job=>job.status==="published").length, drafts=d.jobs.filter(job=>job.status==="draft").length, unread=d.notifications.filter(item=>!item.read_at&&!item.is_read).length;
