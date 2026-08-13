@@ -467,6 +467,12 @@ html[dir="rtl"] .adm-search input {
 .adm-email-history { margin-block-start: 18px; }
 .adm-email-history-head { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
 .adm-email-note { padding: 12px; border-radius: 9px; background: var(--adm-soft); font-size: .84rem; }
+.adm-error-stats { grid-template-columns: repeat(6,minmax(0,1fr)); margin-block-end:18px; }
+.adm-error-center .adm-business-filters { margin-block-end:16px; }
+.adm-error-message { min-width:240px; white-space:normal!important; }
+.adm-error-dialog { width:min(560px,calc(100% - 28px)); padding:0; border:0; border-radius:14px; }
+.adm-error-dialog::backdrop { background:#071a36aa; }
+.adm-error-dialog .adm-card { margin:0; box-shadow:none; }
 .adm-empty,
 .adm-loading,
 .adm-error {
@@ -1330,6 +1336,7 @@ html[dir="rtl"] .adm-event {
   }
 }
 @media (max-width: 720px) {
+  .adm-error-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .adm-business-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

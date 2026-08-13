@@ -1,9 +1,9 @@
 (() => {
   const api = async (path, options = {}) => {
-    const response = await fetch(path, { credentials:"same-origin", ...options, headers:{...(options.body ? {"content-type":"application/json"} : {}),...options.headers} });
+    let response;try{response = await fetch(path, { credentials:"same-origin", ...options, headers:{...(options.body ? {"content-type":"application/json"} : {}),...options.headers} });}catch(error){throw (window.WorkcruteErrors?.networkError()||error);}
     const data = await response.json().catch(() => ({}));
-    if (response.status === 401) { location.replace("/admin/connexion/"); throw new Error("Session expirée"); }
-    if (!response.ok) throw new Error(data.error || "Une erreur est survenue.");
+    if (response.status === 401) { window.WorkcruteErrors?.sessionExpired(); throw Object.assign(new Error(data.userMessage || "Session expirée"),{status:401,requestId:data.requestId,code:data.code}); }
+    if (!response.ok) throw (window.WorkcruteErrors?.apiError(response,data)||Object.assign(new Error(data.userMessage||data.error||"Une erreur est survenue."),{status:response.status,requestId:data.requestId,code:data.code}));
     return data;
   };
   window.adminApi = api;

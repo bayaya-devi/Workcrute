@@ -12,6 +12,7 @@
     ["questionnaires", "/admin/questionnaires/", "questionnaires", "?"],
     ["chatbot", "/admin/chatbot/", "chatbot", "✦"],
     ["notifications", "/admin/notifications/", "notifications", "♢"],
+    ["errors", "/admin/erreurs/", "errors", "!"],
     ["audit", "/admin/journal-activite/", "audit", "≡"],
     ["settings", "/admin/parametres/", "settings", "⚙"],
     ["security", "/admin/securite/", "security", "◈"],

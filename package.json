@@ -15,6 +15,7 @@
     "test:admin-questionnaires": "node scripts/test-admin-questionnaire-builder.mjs",
     "test:chatbot": "node scripts/test-chatbot-admin.mjs",
     "test:admin-emails": "node scripts/test-admin-emails.mjs",
+    "test:errors": "node scripts/test-error-management.mjs",
     "seed:demo": "node scripts/seed-demo.js"
   },
   "devDependencies": {

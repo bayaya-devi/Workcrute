@@ -1,11 +1,12 @@
 (() => {
   const root = location.pathname.startsWith("/Workcrute/") ? "/Workcrute" : "";
+  if (!window.WorkcruteErrors && !document.querySelector('script[data-error-system]')) { const script=document.createElement("script");script.dataset.errorSystem="";script.src=root+"/error-system.js";document.head.append(script); }
   const go = path => { location.href = root + path; };
   const api = async (path, options = {}) => {
     if (location.hostname.endsWith("github.io")) return window.workcruteLocalApi.request(path, options);
-    const response = await fetch(path, { credentials:"same-origin", headers:{"content-type":"application/json", ...(options.headers || {})}, ...options });
+    let response;try{response = await fetch(path, { credentials:"same-origin", headers:{"content-type":"application/json", ...(options.headers || {})}, ...options });}catch(error){throw (window.WorkcruteErrors?.networkError()||error);}
     const body = response.status === 204 ? null : await response.json().catch(() => null);
-    if (!response.ok) throw new Error(body?.error || "REQUEST_FAILED");
+    if (!response.ok) { const error=window.WorkcruteErrors?.apiError(response,body||{})||Object.assign(new Error(body?.userMessage||body?.error||"REQUEST_FAILED"),{requestId:body?.requestId,status:response.status,code:body?.code}); if(response.status===401&&!path.startsWith("/api/auth/"))window.WorkcruteErrors?.sessionExpired(); throw error; }
     return body;
   };
   const routeFor = role => role === "recruiter" ? "/recruteur/tableau-de-bord" : role === "admin" ? "/admin/tableau-de-bord" : "/demandeur/tableau-de-bord";
@@ -74,7 +75,7 @@
     }); update();
   }
   const role = document.body.dataset.protected;
-  if (role) api("/api/auth/me").then(({user}) => { if (user.role !== role) go("/connexion"); const target = document.querySelector("[data-user-email]"); if (target) target.textContent = user.email; }).catch(() => go("/connexion"));
+  if (role) api("/api/auth/me").then(({user}) => { if (user.role !== role) go("/connexion"); const target = document.querySelector("[data-user-email]"); if (target) target.textContent = user.email; }).catch(error => { if(error.status!==401) go("/connexion"); });
   document.querySelectorAll("[data-logout]").forEach(button => button.addEventListener("click", async () => { try { await api("/api/auth/logout", {method:"POST"}); } finally { go("/"); } }));
   const job = document.querySelector("[data-job-form]");
   if (job) job.addEventListener("submit", async event => { event.preventDefault(); const error = job.querySelector(".error"), button = job.querySelector("[type=submit]"); error.textContent = ""; setBusy(button,true,"Publication..."); try { await api("/api/jobs",{method:"POST",body:JSON.stringify({...Object.fromEntries(new FormData(job)),status:"published"})}); go("/recruteur/offres"); } catch(err) { error.textContent=errorText(err); } finally { setBusy(button,false,"Publier l'offre"); } });

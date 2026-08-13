@@ -116,7 +116,8 @@
     return `<div class="cand-empty"><div><strong>${title}</strong><p>${help}</p>${action}</div></div>`;
   }
   function errorState() {
-    return `<div class="cand-error" role="alert"><div><strong>${t("error")}</strong><p>${t("noJobsHelp")}</p><button class="wc-button wc-button--secondary" onclick="location.reload()">${t("retry")}</button></div></div>`;
+    const error=window.WorkcruteErrors?.lastError,reference=error?.requestId?`<p class="wc-system-reference">${window.WorkcruteErrors.reference(error.requestId)}</p>`:"";
+    return `<div class="cand-error" role="alert"><div><strong>${t("error")}</strong><p>${error?.userMessage||t("noJobsHelp")}</p>${reference}<button class="wc-button wc-button--secondary" onclick="location.reload()">${t("retry")}</button></div></div>`;
   }
   function toast(message, isError = false) {
     document.querySelector(".cand-toast")?.remove();
@@ -657,7 +658,7 @@
               body: data,
             });
             const body = await response.json().catch(() => ({}));
-            if (!response.ok) throw new Error(body.error || t("error"));
+            if (!response.ok) throw (window.WorkcruteErrors?.apiError(response,body)||new Error(body.userMessage||body.error||t("error")));
           }
           form.reset();
           wrap.hidden = true;

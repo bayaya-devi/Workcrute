@@ -109,8 +109,7 @@
       `<div class="rec-head"><div><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ""}</div>${action}</div>`,
     empty = (title, help, action = "") =>
       `<div class="rec-empty"><div><strong>${title}</strong><p>${help}</p>${action}</div></div>`,
-    errorState = () =>
-      `<div class="rec-error"><div><strong>${t("error")}</strong><p>${t("retry")}</p><button class="rec-button secondary" onclick="location.reload()">${t("retry")}</button></div></div>`,
+    errorState = () => { const error=window.WorkcruteErrors?.lastError,reference=error?.requestId?`<p class="wc-system-reference">${window.WorkcruteErrors.reference(error.requestId)}</p>`:"";return `<div class="rec-error"><div><strong>${t("error")}</strong><p>${error?.userMessage||t("retry")}</p>${reference}<button class="rec-button secondary" onclick="location.reload()">${t("retry")}</button></div></div>`; },
     toast = (msg, error = false) => {
       document.querySelector(".rec-toast")?.remove();
       const n = document.createElement("div");

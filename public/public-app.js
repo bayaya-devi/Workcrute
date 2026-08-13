@@ -285,7 +285,7 @@
       ? window.workcrute.api(path, options)
       : fetch(path, options).then(async (response) => {
           const data = await response.json();
-          if (!response.ok) throw new Error(data.error);
+          if (!response.ok) throw (window.WorkcruteErrors?.apiError(response,data)||new Error(data.userMessage||data.error));
           return data;
         });
   const jobCard = (job, row = false) => {

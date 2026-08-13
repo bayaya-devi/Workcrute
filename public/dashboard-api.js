@@ -1,10 +1,10 @@
 (() => {
   const call = async (path, options = {}) => {
     if (location.hostname.endsWith("github.io")) return window.workcruteLocalApi.request(path, options);
-    const response = await fetch(path, { credentials: "same-origin", headers: { "content-type": "application/json", ...(options.headers || {}) }, ...options });
+    let response;try{response=await fetch(path,{credentials:"same-origin",headers:{"content-type":"application/json",...(options.headers||{})},...options});}catch(error){throw(window.WorkcruteErrors?.networkError()||error);}
     if (response.status === 204) return null;
     const body = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(body?.error || "Une erreur est survenue.");
+    if (!response.ok) { const error=window.WorkcruteErrors?.apiError(response,body||{})||Object.assign(new Error(body?.userMessage||body?.error||"Une erreur est survenue."),{status:response.status,requestId:body?.requestId,code:body?.code});if(response.status===401)window.WorkcruteErrors?.sessionExpired();throw error; }
     return body;
   };
   const esc = value => String(value ?? "").replace(/[&<>"']/g, char => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[char]));
@@ -58,7 +58,7 @@
       const form = new FormData(event.currentTarget);
       const response = location.hostname.endsWith("github.io") ? { ok:true, json:async()=>({}) } : await fetch("/api/documents", { method:"POST", credentials:"same-origin", body:form });
       if (location.hostname.endsWith("github.io")) await window.workcruteLocalApi.uploadDocument(form);
-      if (!response.ok) return toast((await response.json().catch(()=>({}))).error || "Impossible d’ajouter ce document.");
+      if (!response.ok) { const body=await response.json().catch(()=>({})),error=window.WorkcruteErrors?.apiError(response,body)||Object.assign(new Error(body.userMessage||"Impossible d’ajouter ce document."),body);return toast(window.WorkcruteErrors?.uploadMessage(error)||error.message); }
       toast("Document ajouté."); hydrate("candidate-profile");
     });
     document.querySelectorAll("[data-delete-document]").forEach(button => button.addEventListener("click", async () => {

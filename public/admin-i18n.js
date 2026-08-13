@@ -1,4 +1,5 @@
 (() => {
+  if (!window.WorkcruteErrors && !document.querySelector('script[data-error-system]')) { const script=document.createElement("script");script.dataset.errorSystem="";script.src="/error-system.js";document.head.append(script); }
   const messages = {
     fr: {
       chatbot: "Chatbot / FAQ",
@@ -12,6 +13,7 @@
       interviews: "Entretiens",
       questionnaires: "Questionnaires",
       notifications: "Notifications",
+      errors: "Erreurs",
       audit: "Journal d’audit",
       settings: "Paramètres",
       security: "Sécurité",
@@ -32,6 +34,7 @@
       interviews: "Interviews",
       questionnaires: "Questionnaires",
       notifications: "Notifications",
+      errors: "Errors",
       audit: "Audit log",
       settings: "Settings",
       security: "Security",
@@ -52,6 +55,7 @@
       interviews: "المقابلات",
       questionnaires: "الاستبيانات",
       notifications: "الإشعارات",
+      errors: "الأخطاء",
       audit: "سجل التدقيق",
       settings: "الإعدادات",
       security: "الأمان",

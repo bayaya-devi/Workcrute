@@ -28,12 +28,12 @@
     status.textContent = copy[lang()].loading;
     button.disabled = true;
     try {
-      const response = await fetch(`/api/admin/auth/step-${step}`, {
+      let response;try{response = await fetch(`/api/admin/auth/step-${step}`, {
         method:"POST",credentials:"same-origin",headers:{"content-type":"application/json"},
         body:JSON.stringify({ secret: form.secret.value }),
-      });
+      });}catch(error){throw(window.WorkcruteErrors?.networkError()||error);}
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || copy[lang()].unavailable);
+      if (!response.ok) throw (window.WorkcruteErrors?.apiError(response,data)||Object.assign(new Error(data.userMessage||data.error||copy[lang()].unavailable),{requestId:data.requestId,status:response.status,code:data.code}));
       if (step === 1) { step = 2; status.textContent = ""; render(); }
       else location.assign("/admin/tableau-de-bord/");
     } catch (error) {

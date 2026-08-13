@@ -2,9 +2,9 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const api = async (path, options = {}) => {
     if (location.hostname.endsWith("github.io")) return window.workcruteLocalApi.request(path, options);
-    const response = await fetch(path, { credentials:"same-origin", headers:{ "content-type":"application/json", ...(options.headers || {}) }, ...options });
+    let response;try{response = await fetch(path, { credentials:"same-origin", headers:{ "content-type":"application/json", ...(options.headers || {}) }, ...options });}catch(error){throw (window.WorkcruteErrors?.networkError()||error);}
     const body = response.status === 204 ? null : await response.json().catch(() => null);
-    if (!response.ok) throw new Error(body?.error || "Une erreur est survenue.");
+    if (!response.ok) { const error=window.WorkcruteErrors?.apiError(response,body||{})||Object.assign(new Error(body?.userMessage||body?.error||"Une erreur est survenue."),{status:response.status,requestId:body?.requestId,code:body?.code});if(response.status===401&&!path.startsWith("/api/auth/"))window.WorkcruteErrors?.sessionExpired();throw error; }
     return body;
   };
   const root = document.createElement("div"); root.id = "auth-root";

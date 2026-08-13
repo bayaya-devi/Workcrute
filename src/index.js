@@ -3,6 +3,11 @@ import {
   enqueueAdminEmail,
   processAdminEmailOutbox,
 } from "./admin-email.js";
+import {
+  classifyError,
+  normalizeApiError,
+  recordAppError,
+} from "./error-system.js";
 
 const encoder = new TextEncoder();
 const fileTypes = new Map([
@@ -619,13 +624,10 @@ async function documents(request, env, path) {
     if (!(file instanceof File) || !documentKinds.includes(kind))
       return bad("Document invalide.");
     const ext = fileTypes.get(file.type);
-    if (
-      !ext ||
-      !file.size ||
-      file.size > 8 * 1024 * 1024 ||
-      !file.name.toLowerCase().endsWith("." + ext)
-    )
-      return bad("Le document doit être un PDF, DOC ou DOCX de moins de 8 Mo.");
+    if (!ext || !file.name.toLowerCase().endsWith("." + ext))
+      return bad("Format invalide : seuls les fichiers PDF, DOC et DOCX sont acceptés.", 415);
+    if (!file.size || file.size > 8 * 1024 * 1024)
+      return bad("Fichier trop gros : la taille maximale est de 8 Mo.", 413);
     const id = crypto.randomUUID(),
       key = `private/${user.id}/${id}.${ext}`;
     const count = await env.DB.prepare(
@@ -643,7 +645,7 @@ async function documents(request, env, path) {
       await storeDocument(env, id, key, file, user.id, kind);
     } catch (error) {
       await env.DB.prepare("DELETE FROM documents WHERE id=?").bind(id).run();
-      throw error;
+      throw new Error(`STORAGE_WRITE_FAILED: ${String(error)}`);
     }
     await audit(env, user, "document_uploaded", "document", id, { kind });
     return json(
@@ -2838,6 +2840,40 @@ async function adminEmailSettings(request, env, path) {
     return json({ ok: true, result: await processAdminEmailOutbox(env, 25) });
   return bad("Action non prise en charge.", 405);
 }
+async function adminErrors(request, env, path) {
+  const session = await requireAdmin(request, env);
+  if (path === "/api/admin/errors" && request.method === "GET") {
+    const url = new URL(request.url), filters = [], binds = [];
+    for (const [key,column,allowed] of [["status","status",["new","in_progress","resolved","ignored"]],["service","service",["api","auth","database","email","upload","ai","frontend"]],["severity","severity",["info","warning","error","critical"]]]) {
+      const value = clean(url.searchParams.get(key), 40);
+      if (allowed.includes(value)) { filters.push(`${column}=?`); binds.push(value); }
+    }
+    const query = clean(url.searchParams.get("q"), 100);
+    if (query) { filters.push("(code LIKE ? OR user_message LIKE ? OR request_id LIKE ? OR route LIKE ?)"); binds.push(...Array(4).fill(`%${query}%`)); }
+    const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+    const [items,stats] = await Promise.all([
+      env.DB.prepare(`SELECT id,request_id,severity,service,code,user_message,user_id,route,method,http_status,status,admin_note,occurred_at,updated_at FROM app_errors ${where} ORDER BY occurred_at DESC LIMIT 200`).bind(...binds).all(),
+      env.DB.prepare("SELECT COUNT(*) today,SUM(CASE WHEN severity='critical' THEN 1 ELSE 0 END) critical,SUM(CASE WHEN service='email' THEN 1 ELSE 0 END) email,SUM(CASE WHEN service='upload' THEN 1 ELSE 0 END) upload,SUM(CASE WHEN service='ai' THEN 1 ELSE 0 END) ai,SUM(CASE WHEN service='api' THEN 1 ELSE 0 END) api FROM app_errors WHERE date(occurred_at)=date('now')").first(),
+    ]);
+    return json({ items: items.results || [], stats: { today:Number(stats?.today||0),critical:Number(stats?.critical||0),email:Number(stats?.email||0),upload:Number(stats?.upload||0),ai:Number(stats?.ai||0),api:Number(stats?.api||0) } });
+  }
+  const match = path.match(/^\/api\/admin\/errors\/([^/]+)$/);
+  if (match && request.method === "PATCH") {
+    const body = await request.json().catch(() => ({})), status = clean(body.status, 30), note = clean(body.note, 2000);
+    if (!["new","in_progress","resolved","ignored"].includes(status)) return bad("Statut d’erreur invalide.");
+    const before = await env.DB.prepare("SELECT status,admin_note FROM app_errors WHERE id=?").bind(match[1]).first();
+    if (!before) return bad("Erreur introuvable.", 404);
+    await env.DB.prepare("UPDATE app_errors SET status=?,admin_note=?,resolved_at=CASE WHEN ?='resolved' THEN CURRENT_TIMESTAMP ELSE NULL END,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(status,note||null,status,match[1]).run();
+    await adminAudit(env,session.id,"app_error_updated","app_error",match[1],before,{status,note:note||null});
+    return json({ ok:true });
+  }
+  return bad("Action non prise en charge.",405);
+}
+async function reportFrontendError(request, env, requestId) {
+  const body = await request.json().catch(() => ({}));
+  await recordAppError(env,{requestId,severity:"error",service:"frontend",code:clean(body.code,80)||"FRONTEND_ERROR",userMessage:"Une erreur d’affichage a été interceptée.",technicalMessage:clean(body.message,500),route:clean(body.route,300),method:"CLIENT",httpStatus:null});
+  return json({ ok:true },202);
+}
 async function adminNotifications(request, env, path) {
   await requireAdmin(request, env);
   if (request.method === "GET") {
@@ -4627,6 +4663,8 @@ async function adminQuestionnaire(request, env, path) {
 export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
+    const suppliedRequestId = request.headers.get("x-request-id");
+    const requestId = suppliedRequestId && /^[a-zA-Z0-9_-]{8,80}$/.test(suppliedRequestId) ? suppliedRequestId : crypto.randomUUID();
     if (request.method === "OPTIONS")
       return new Response(null, { headers: cors(request) });
     try {
@@ -4792,6 +4830,18 @@ export default {
         path.startsWith("/api/admin/email-settings/")
       )
         response = await adminEmailSettings(request, env, path);
+      else if (path === "/api/admin/errors" || path.startsWith("/api/admin/errors/"))
+        response = await adminErrors(request, env, path);
+      else if (path === "/api/errors/report" && request.method === "POST")
+        response = await reportFrontendError(request, env, requestId);
+      else if (env.ENVIRONMENT === "test" && path === "/api/test/errors/500")
+        throw new Error("SIMULATED_INTERNAL_FAILURE");
+      else if (env.ENVIRONMENT === "test" && path === "/api/test/errors/database")
+        await env.DB.prepare("SELECT * FROM table_that_does_not_exist").all();
+      else if (env.ENVIRONMENT === "test" && path === "/api/test/errors/upload")
+        response = bad("Le stockage du document est temporairement indisponible.", 507);
+      else if (env.ENVIRONMENT === "test" && path === "/api/test/errors/email")
+        response = bad("Le service email est temporairement indisponible.", 503);
       else if (
         path === "/api/admin/notifications" ||
         path.startsWith("/api/admin/notifications/")
@@ -4828,6 +4878,7 @@ export default {
       )
         response = await adminQuestionnaire(request, env, path);
       else response = await env.ASSETS.fetch(request);
+      if (path.startsWith("/api/")) response = await normalizeApiError(response, env, request, path, requestId);
       const headers = new Headers(response.headers);
       Object.entries(cors(request)).forEach(([key, value]) =>
         headers.set(key, value),
@@ -4843,14 +4894,18 @@ export default {
       return new Response(response.body, { status: response.status, headers });
     } catch (error) {
       if (error instanceof Response) {
-        const headers = new Headers(error.headers);
+        const normalized = path.startsWith("/api/") ? await normalizeApiError(error, env, request, path, requestId) : error;
+        const headers = new Headers(normalized.headers);
         Object.entries(cors(request)).forEach(([key, value]) =>
           headers.set(key, value),
         );
         headers.set("cache-control", "no-store");
-        return new Response(error.body, { status: error.status, headers });
+        return new Response(normalized.body, { status: normalized.status, headers });
       }
+      const classified = classifyError(500, String(error), path);
       try {
+        await recordAppError(env,{requestId,severity:"critical",service:String(error).toLowerCase().includes("d1")||String(error).toLowerCase().includes("database")?"database":classified.service,code:classified.code,userMessage:classified.userMessage,technicalMessage:String(error),route:path,method:request.method,httpStatus:500,metadata:{environment:env.ENVIRONMENT||"unknown"}});
+        await adminNotice(env,"errors","Erreur critique détectée",`Une erreur ${classified.code} est survenue. Référence : ${requestId.split("-")[0].toUpperCase()}.`,"critical","/admin/erreurs/");
         await platformEvent(
           env,
           "SYSTEM_ERROR",
@@ -4874,7 +4929,9 @@ export default {
           stack: error?.stack,
         }),
       );
-      return bad("Une erreur est survenue.", 500);
+      const failure = json({code:"INTERNAL_ERROR",userMessage:"Un problème technique est survenu. Réessayez dans quelques instants.",requestId,timestamp:new Date().toISOString()},500,{"x-request-id":requestId});
+      const headers = new Headers(failure.headers);Object.entries(cors(request)).forEach(([key,value])=>headers.set(key,value));
+      return new Response(failure.body,{status:500,headers});
     }
   },
   async scheduled(_controller, env, ctx) {
