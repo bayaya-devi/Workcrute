@@ -165,14 +165,33 @@ async function emailToken(env, userId, purpose) {
   return raw;
 }
 async function sendEmail(env, message) {
-  if (env.EMAIL_PROVIDER_API_KEY && env.EMAIL_FROM)
-    console.log(
-      JSON.stringify({
-        event: "email_queued",
-        to: message.to,
-        template: message.template,
-      }),
-    );
+  if (env.ENVIRONMENT === "test") return true;
+  if (!env.EMAIL_PROVIDER_API_KEY || !env.EMAIL_FROM) return false;
+  const subjects = {
+    admin_verification: "Votre code de vérification Workcrute",
+    admin_test: "Email administratif Workcrute opérationnel",
+    verify_email: "Vérifiez votre adresse Workcrute",
+    reset_password: "Réinitialisez votre mot de passe Workcrute",
+  };
+  const content = message.code
+    ? `Votre code Workcrute est : ${message.code}. Il expire dans 10 minutes.`
+    : message.template === "admin_test"
+      ? "La messagerie administrative Workcrute est correctement configurée."
+      : "Une action de sécurité a été demandée sur votre compte Workcrute.";
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${env.EMAIL_PROVIDER_API_KEY}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      from: env.EMAIL_FROM,
+      to: [message.to],
+      subject: subjects[message.template] || "Notification Workcrute",
+      text: content,
+    }),
+  });
+  return response.ok;
 }
 
 async function register(request, env) {
@@ -1707,15 +1726,383 @@ async function recruiterSettings(request, env) {
     .run();
   return json({ ok: true });
 }
+
+const ADMIN_SESSION_COOKIE = "wc_admin_session";
+const ADMIN_CHALLENGE_COOKIE = "wc_admin_challenge";
+const adminCookie = (name, value, maxAge) =>
+  `${name}=${value}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
+const cookieValue = (request, name) =>
+  request.headers
+    .get("cookie")
+    ?.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`))?.[1] || null;
+const afterMs = (milliseconds) => new Date(Date.now() + milliseconds).toISOString();
+const dbTime = (value) => {
+  if (!value) return 0;
+  const normalized = String(value).includes("T")
+    ? String(value)
+    : String(value).replace(" ", "T") + "Z";
+  return new Date(normalized).getTime();
+};
+const validAdminSecret = (value) =>
+  typeof value === "string" &&
+  value.length >= 14 &&
+  value.length <= 200 &&
+  /[a-z]/.test(value) &&
+  /[A-Z]/.test(value) &&
+  /\d/.test(value) &&
+  /[^A-Za-z0-9]/.test(value);
+const validEmail = (value) => /^\S+@\S+\.\S+$/.test(value);
+function safeEqual(left, right) {
+  const a = encoder.encode(String(left || ""));
+  const b = encoder.encode(String(right || ""));
+  let mismatch = a.length ^ b.length;
+  const length = Math.max(a.length, b.length);
+  for (let index = 0; index < length; index += 1)
+    mismatch |= (a[index] || 0) ^ (b[index] || 0);
+  return mismatch === 0;
+}
+async function adminSecretHash(secret, salt, env, level) {
+  return hashPassword(
+    `${secret}\u0000${env.SESSION_PEPPER}\u0000workcrute-admin-${level}`,
+    salt,
+  );
+}
+async function adminConfig(env) {
+  return env.DB.prepare("SELECT * FROM admin_security_config WHERE id=1").first();
+}
+async function verifyAdminSecret(env, level, candidate) {
+  if (typeof candidate !== "string" || candidate.length > 200) return false;
+  const config = await adminConfig(env);
+  const storedHash = config?.[`secret_${level}_hash`];
+  const initial = env[`ADMIN_AUTH_SECRET_${level}`];
+  if (!storedHash && !initial)
+    throw bad("Configuration administrative incomplète.", 503);
+  const context = `\u0000${env.SESSION_PEPPER}\u0000workcrute-admin-${level}`;
+  const expected = storedHash || (await digest(initial + context));
+  const actual = storedHash
+    ? await adminSecretHash(candidate, config[`secret_${level}_salt`], env, level)
+    : await digest(candidate + context);
+  return safeEqual(actual, expected);
+}
+async function adminIpHash(request, env) {
+  const forwarded = request.headers.get("cf-connecting-ip") ||
+    (env.ENVIRONMENT !== "production"
+      ? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      : null) ||
+    "unavailable";
+  return digest(`${forwarded}\u0000${env.SESSION_PEPPER}`);
+}
+function assertAdminOrigin(request) {
+  if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return;
+  const origin = request.headers.get("origin");
+  if (origin && origin !== new URL(request.url).origin)
+    throw bad("Origine de requête refusée.", 403);
+}
+async function adminAudit(env, sessionId, action, type, id, before, after, metadata = {}) {
+  await env.DB.prepare(
+    "INSERT INTO admin_audit_logs(id,admin_session_id,action,resource_type,resource_id,before_json,after_json,metadata_json) VALUES(?,?,?,?,?,?,?,?)",
+  )
+    .bind(
+      crypto.randomUUID(),
+      sessionId || null,
+      action,
+      type,
+      id || null,
+      before ? JSON.stringify(before) : null,
+      after ? JSON.stringify(after) : null,
+      JSON.stringify(metadata),
+    )
+    .run();
+}
+async function adminNotice(env, category, title, body, severity = "info", href = null) {
+  await env.DB.prepare(
+    "INSERT INTO admin_notifications(id,category,title,body,severity,href) VALUES(?,?,?,?,?,?)",
+  )
+    .bind(crypto.randomUUID(), category, title, body, severity, href)
+    .run();
+}
+async function adminRateState(env, bucketKey) {
+  const row = await env.DB.prepare(
+    "SELECT * FROM admin_rate_limits WHERE bucket_key=?",
+  ).bind(bucketKey).first();
+  if (!row) return null;
+  if (row.blocked_until && row.blocked_until > now()) return row;
+  if (dbTime(row.window_started_at) < Date.now() - 15 * 60 * 1000) {
+    await env.DB.prepare("DELETE FROM admin_rate_limits WHERE bucket_key=?")
+      .bind(bucketKey).run();
+    return null;
+  }
+  return row;
+}
+async function assertAdminRate(env, bucketKey) {
+  const row = await adminRateState(env, bucketKey);
+  if (row?.blocked_until && row.blocked_until > now()) {
+    const retry = Math.max(1, Math.ceil((new Date(row.blocked_until) - Date.now()) / 1000));
+    throw json({ error: "Trop de tentatives. Réessayez plus tard.", retryAfter: retry }, 429, {
+      "retry-after": String(retry),
+    });
+  }
+}
+async function adminRateFailure(env, bucketKey) {
+  const row = await adminRateState(env, bucketKey);
+  const count = (row?.failure_count || 0) + 1;
+  const blockedUntil = count >= 5 ? afterMs(15 * 60 * 1000) : null;
+  await env.DB.prepare(
+    "INSERT INTO admin_rate_limits(bucket_key,failure_count,window_started_at,blocked_until,updated_at) VALUES(?,?,CURRENT_TIMESTAMP,?,CURRENT_TIMESTAMP) ON CONFLICT(bucket_key) DO UPDATE SET failure_count=?,blocked_until=?,updated_at=CURRENT_TIMESTAMP",
+  ).bind(bucketKey, count, blockedUntil, count, blockedUntil).run();
+  return blockedUntil;
+}
+async function logAdminAttempt(env, ipHash, step, success, outcome) {
+  await env.DB.prepare(
+    "INSERT INTO admin_login_attempts(id,ip_hash,step,success,outcome) VALUES(?,?,?,?,?)",
+  ).bind(crypto.randomUUID(), ipHash, step, success ? 1 : 0, outcome).run();
+}
+async function adminFor(request, env) {
+  const raw = cookieValue(request, ADMIN_SESSION_COOKIE);
+  if (!raw) return null;
+  const row = await env.DB.prepare(
+    "SELECT * FROM admin_sessions WHERE token_hash=? AND revoked_at IS NULL AND expires_at>? AND idle_expires_at>?",
+  ).bind(await digest(raw + env.SESSION_PEPPER), now(), now()).first();
+  if (!row) return null;
+  const expectedIp = await adminIpHash(request, env);
+  if (!safeEqual(row.ip_hash, expectedIp)) return null;
+  if (Date.now() - dbTime(row.last_seen_at) > 5 * 60 * 1000)
+    await env.DB.prepare(
+      "UPDATE admin_sessions SET last_seen_at=CURRENT_TIMESTAMP,idle_expires_at=? WHERE id=?",
+    ).bind(afterMs(30 * 60 * 1000), row.id).run();
+  return row;
+}
+async function requireAdmin(request, env) {
+  assertAdminOrigin(request);
+  const session = await adminFor(request, env);
+  if (!session) throw bad("Authentification administrateur requise.", 401);
+  return session;
+}
+async function adminAuthStepOne(request, env) {
+  assertAdminOrigin(request);
+  const body = await request.json().catch(() => ({}));
+  const ipHash = await adminIpHash(request, env);
+  const bucket = `admin-auth:${ipHash}`;
+  await assertAdminRate(env, bucket);
+  if (!(await verifyAdminSecret(env, 1, body.secret))) {
+    const blocked = await adminRateFailure(env, bucket);
+    await logAdminAttempt(env, ipHash, 1, false, blocked ? "blocked" : "invalid");
+    if (blocked)
+      await adminNotice(env, "security", "Accès administrateur temporairement bloqué", "Le seuil de tentatives a été atteint.", "critical", "/admin/journal-activite/");
+    return bad("Secret incorrect.", 401);
+  }
+  const raw = token();
+  await env.DB.prepare(
+    "INSERT INTO admin_auth_challenges(id,token_hash,ip_hash,expires_at) VALUES(?,?,?,?)",
+  ).bind(crypto.randomUUID(), await digest(raw + env.SESSION_PEPPER), ipHash, afterMs(5 * 60 * 1000)).run();
+  await logAdminAttempt(env, ipHash, 1, true, "verified");
+  return json({ ok: true, nextStep: 2 }, 200, {
+    "set-cookie": adminCookie(ADMIN_CHALLENGE_COOKIE, raw, 300),
+  });
+}
+async function adminAuthStepTwo(request, env) {
+  assertAdminOrigin(request);
+  const body = await request.json().catch(() => ({}));
+  const ipHash = await adminIpHash(request, env);
+  const bucket = `admin-auth:${ipHash}`;
+  await assertAdminRate(env, bucket);
+  const rawChallenge = cookieValue(request, ADMIN_CHALLENGE_COOKIE);
+  const challenge = rawChallenge
+    ? await env.DB.prepare(
+        "SELECT * FROM admin_auth_challenges WHERE token_hash=? AND ip_hash=? AND consumed_at IS NULL AND expires_at>?",
+      ).bind(await digest(rawChallenge + env.SESSION_PEPPER), ipHash, now()).first()
+    : null;
+  if (!challenge) return bad("La première étape a expiré.", 401);
+  if (!(await verifyAdminSecret(env, 2, body.secret))) {
+    const blocked = await adminRateFailure(env, bucket);
+    await logAdminAttempt(env, ipHash, 2, false, blocked ? "blocked" : "invalid");
+    return bad("Secret incorrect.", 401);
+  }
+  const rawSession = token();
+  const sessionId = crypto.randomUUID();
+  await env.DB.batch([
+    env.DB.prepare("UPDATE admin_auth_challenges SET consumed_at=CURRENT_TIMESTAMP WHERE id=?").bind(challenge.id),
+    env.DB.prepare(
+      "INSERT INTO admin_sessions(id,token_hash,ip_hash,expires_at,idle_expires_at) VALUES(?,?,?,?,?)",
+    ).bind(sessionId, await digest(rawSession + env.SESSION_PEPPER), ipHash, afterMs(8 * 60 * 60 * 1000), afterMs(30 * 60 * 1000)),
+    env.DB.prepare("DELETE FROM admin_rate_limits WHERE bucket_key=?").bind(bucket),
+  ]);
+  await logAdminAttempt(env, ipHash, 2, true, "authenticated");
+  await adminAudit(env, sessionId, "admin_login", "admin_session", sessionId);
+  const headers = new Headers({ "content-type": "application/json; charset=utf-8" });
+  headers.append("set-cookie", adminCookie(ADMIN_SESSION_COOKIE, rawSession, 8 * 60 * 60));
+  headers.append("set-cookie", adminCookie(ADMIN_CHALLENGE_COOKIE, "", 0));
+  return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
+}
+async function adminLogout(request, env) {
+  assertAdminOrigin(request);
+  const raw = cookieValue(request, ADMIN_SESSION_COOKIE);
+  const session = await adminFor(request, env);
+  if (raw)
+    await env.DB.prepare("UPDATE admin_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE token_hash=?")
+      .bind(await digest(raw + env.SESSION_PEPPER)).run();
+  if (session) await adminAudit(env, session.id, "admin_logout", "admin_session", session.id);
+  return json({ ok: true }, 200, {
+    "set-cookie": adminCookie(ADMIN_SESSION_COOKIE, "", 0),
+  });
+}
+async function adminMe(request, env) {
+  const session = await requireAdmin(request, env);
+  const config = await adminConfig(env);
+  const unread = await env.DB.prepare(
+    "SELECT COUNT(*) total FROM admin_notifications WHERE read_at IS NULL",
+  ).first();
+  return json({
+    admin: { sessionExpiresAt: session.expires_at, idleExpiresAt: session.idle_expires_at },
+    security: {
+      email: config?.primary_email || null,
+      emailVerified: Boolean(config?.primary_email_verified_at),
+      secret1Rotated: Boolean(config?.secret_1_hash),
+      secret2Rotated: Boolean(config?.secret_2_hash),
+    },
+    unreadNotifications: unread?.total || 0,
+  });
+}
+function verificationCode(env) {
+  if (env.ENVIRONMENT === "test" && /^\d{6}$/.test(env.ADMIN_EMAIL_TEST_CODE || ""))
+    return env.ADMIN_EMAIL_TEST_CODE;
+  const values = crypto.getRandomValues(new Uint32Array(1));
+  return String(values[0] % 1000000).padStart(6, "0");
+}
+async function adminCodeHash(code, env, id) {
+  return digest(`${code}\u0000${id}\u0000${env.SESSION_PEPPER}`);
+}
+async function requestAdminSecretChange(request, env) {
+  const session = await requireAdmin(request, env);
+  const body = await request.json().catch(() => ({}));
+  const level = Number(body.level);
+  if (![1, 2].includes(level) || !(await verifyAdminSecret(env, level, body.currentSecret)))
+    return bad("Le secret actuel est incorrect.", 401);
+  if (!validAdminSecret(body.newSecret) || body.newSecret !== body.confirmSecret)
+    return bad("Le nouveau secret est invalide ou sa confirmation diffère.");
+  if (safeEqual(body.currentSecret, body.newSecret))
+    return bad("Le nouveau secret doit être différent.");
+  const config = await adminConfig(env);
+  if (!config?.primary_email_verified_at)
+    return bad("Vérifiez d’abord l’adresse email administrative.", 409);
+  const id = crypto.randomUUID();
+  const salt = token();
+  const code = verificationCode(env);
+  const delivered = await sendEmail(env, { to: config.primary_email, template: "admin_verification", code });
+  if (!delivered) return bad("Le service email administratif est indisponible.", 503);
+  await env.DB.prepare(
+    "INSERT INTO admin_secret_changes(id,admin_session_id,secret_level,new_secret_hash,new_secret_salt,verification_code_hash,expires_at) VALUES(?,?,?,?,?,?,?)",
+  ).bind(id, session.id, level, await adminSecretHash(body.newSecret, salt, env, level), salt, await adminCodeHash(code, env, id), afterMs(10 * 60 * 1000)).run();
+  await adminAudit(env, session.id, "secret_change_requested", "admin_secret", String(level));
+  return json({ ok: true, requestId: id });
+}
+async function confirmAdminSecretChange(request, env) {
+  const session = await requireAdmin(request, env);
+  const body = await request.json().catch(() => ({}));
+  const id = clean(body.requestId, 80);
+  const row = await env.DB.prepare(
+    "SELECT * FROM admin_secret_changes WHERE id=? AND admin_session_id=? AND completed_at IS NULL AND expires_at>?",
+  ).bind(id, session.id, now()).first();
+  if (!row || row.attempts >= 5) return bad("Demande expirée ou invalide.", 410);
+  if (!safeEqual(await adminCodeHash(String(body.code || ""), env, id), row.verification_code_hash)) {
+    await env.DB.prepare("UPDATE admin_secret_changes SET attempts=attempts+1 WHERE id=?").bind(id).run();
+    return bad("Code de validation incorrect.", 401);
+  }
+  const config = await adminConfig(env);
+  const column = row.secret_level === 1 ? "secret_1" : "secret_2";
+  await env.DB.batch([
+    env.DB.prepare(`UPDATE admin_security_config SET ${column}_hash=?,${column}_salt=?,updated_at=CURRENT_TIMESTAMP WHERE id=1`).bind(row.new_secret_hash, row.new_secret_salt),
+    env.DB.prepare("UPDATE admin_secret_changes SET completed_at=CURRENT_TIMESTAMP WHERE id=?").bind(id),
+    env.DB.prepare("UPDATE admin_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE id<>? AND revoked_at IS NULL").bind(session.id),
+  ]);
+  await adminAudit(env, session.id, "secret_changed", "admin_secret", String(row.secret_level), { rotated: Boolean(config?.[`${column}_hash`]) }, { rotated: true });
+  await adminNotice(env, "security", `Secret niveau ${row.secret_level} modifié`, "Les autres sessions administrateur ont été révoquées.", "success", "/admin/securite/");
+  return json({ ok: true });
+}
+async function requestAdminEmailChange(request, env) {
+  const session = await requireAdmin(request, env);
+  const body = await request.json().catch(() => ({}));
+  const email = clean(body.email, 254).toLowerCase();
+  if (!validEmail(email)) return bad("Adresse email invalide.");
+  if (!(await verifyAdminSecret(env, 2, body.secret2)))
+    return bad("Le secret de niveau 2 est incorrect.", 401);
+  const id = crypto.randomUUID();
+  const code = verificationCode(env);
+  const delivered = await sendEmail(env, { to: email, template: "admin_verification", code });
+  if (!delivered) return bad("Le service email administratif est indisponible.", 503);
+  await env.DB.prepare(
+    "INSERT INTO admin_email_changes(id,admin_session_id,new_email,verification_code_hash,expires_at) VALUES(?,?,?,?,?)",
+  ).bind(id, session.id, email, await adminCodeHash(code, env, id), afterMs(10 * 60 * 1000)).run();
+  await adminAudit(env, session.id, "admin_email_change_requested", "admin_email", null);
+  return json({ ok: true, requestId: id });
+}
+async function confirmAdminEmailChange(request, env) {
+  const session = await requireAdmin(request, env);
+  const body = await request.json().catch(() => ({}));
+  const id = clean(body.requestId, 80);
+  const row = await env.DB.prepare(
+    "SELECT * FROM admin_email_changes WHERE id=? AND admin_session_id=? AND completed_at IS NULL AND expires_at>?",
+  ).bind(id, session.id, now()).first();
+  if (!row || row.attempts >= 5) return bad("Demande expirée ou invalide.", 410);
+  if (!safeEqual(await adminCodeHash(String(body.code || ""), env, id), row.verification_code_hash)) {
+    await env.DB.prepare("UPDATE admin_email_changes SET attempts=attempts+1 WHERE id=?").bind(id).run();
+    return bad("Code de validation incorrect.", 401);
+  }
+  const before = await adminConfig(env);
+  await env.DB.batch([
+    env.DB.prepare("UPDATE admin_security_config SET primary_email=?,primary_email_verified_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=1").bind(row.new_email),
+    env.DB.prepare("UPDATE admin_email_changes SET completed_at=CURRENT_TIMESTAMP WHERE id=?").bind(id),
+  ]);
+  await adminAudit(env, session.id, "admin_email_changed", "admin_email", null, { emailConfigured: Boolean(before?.primary_email) }, { emailConfigured: true, verified: true });
+  return json({ ok: true, email: row.new_email });
+}
+async function adminEmailTest(request, env) {
+  const session = await requireAdmin(request, env);
+  const config = await adminConfig(env);
+  if (!config?.primary_email_verified_at) return bad("Aucune adresse administrative vérifiée.", 409);
+  if (!(await sendEmail(env, { to: config.primary_email, template: "admin_test" })))
+    return bad("Le service email administratif est indisponible.", 503);
+  await adminAudit(env, session.id, "admin_email_test_sent", "admin_email", null);
+  return json({ ok: true });
+}
+async function adminNotifications(request, env, path) {
+  await requireAdmin(request, env);
+  if (request.method === "GET") {
+    const { results = [] } = await env.DB.prepare(
+      "SELECT id,category,title,body,severity,href,read_at,created_at FROM admin_notifications ORDER BY created_at DESC LIMIT 50",
+    ).all();
+    return json({ items: results });
+  }
+  const id = path.split("/").filter(Boolean).pop();
+  await env.DB.prepare("UPDATE admin_notifications SET read_at=CURRENT_TIMESTAMP WHERE id=?").bind(id).run();
+  return json({ ok: true });
+}
+async function adminAuditList(request, env) {
+  await requireAdmin(request, env);
+  const { results = [] } = await env.DB.prepare(
+    "SELECT id,action,resource_type,resource_id,metadata_json,created_at FROM admin_audit_logs ORDER BY created_at DESC LIMIT 100",
+  ).all();
+  return json({ items: results.map((item) => ({ ...item, metadata: parseStored(item.metadata_json, {}) })) });
+}
+async function adminSearch(request, env) {
+  await requireAdmin(request, env);
+  const query = clean(new URL(request.url).searchParams.get("q"), 120);
+  if (query.length < 2) return json({ items: [] });
+  const like = `%${query}%`;
+  const { results = [] } = await env.DB.prepare(
+    "SELECT id,email label,role type,'/admin/' || CASE role WHEN 'candidate' THEN 'demandeurs' WHEN 'recruiter' THEN 'recruteurs' ELSE 'tableau-de-bord' END || '/' href FROM users WHERE email LIKE ? UNION ALL SELECT id,title label,'job' type,'/admin/offres/' href FROM job_offers WHERE title LIKE ? UNION ALL SELECT id,id label,'application' type,'/admin/candidatures/' href FROM applications WHERE id LIKE ? LIMIT 20",
+  ).bind(like, like, like).all();
+  return json({ items: results });
+}
 async function adminStats(request, env) {
-  await requireUser(request, env, ["admin"]);
+  await requireAdmin(request, env);
   const row = await env.DB.prepare(
     "SELECT (SELECT COUNT(*) FROM users) users,(SELECT COUNT(*) FROM users WHERE role='candidate') candidates,(SELECT COUNT(*) FROM users WHERE role='recruiter') recruiters,(SELECT COUNT(*) FROM job_offers WHERE status='published') active_jobs,(SELECT COUNT(*) FROM applications) applications",
   ).first();
   return json({ stats: row });
 }
 async function adminQuestionnaire(request, env, path) {
-  const user = await requireUser(request, env, ["admin"]);
+  const user = await requireAdmin(request, env);
   if (request.method === "GET") {
     const { results = [] } = await env.DB.prepare(
       "SELECT id,field_key,type,labels_json,description_json,options_json,sort_order,is_required,is_active FROM questionnaire_questions ORDER BY sort_order",
@@ -1769,7 +2156,7 @@ async function adminQuestionnaire(request, env, path) {
         body.required ? 1 : 0,
       )
       .run();
-    await audit(env, user, "question_created", "questionnaire_question", id);
+    await adminAudit(env, user.id, "question_created", "questionnaire_question", id);
     return json({ id }, 201);
   }
   const id = path.split("/").pop();
@@ -1924,6 +2311,30 @@ export default {
         path.startsWith("/api/interviews/")
       )
         response = await interviews(request, env, path);
+      else if (path === "/api/admin/auth/step-1" && request.method === "POST")
+        response = await adminAuthStepOne(request, env);
+      else if (path === "/api/admin/auth/step-2" && request.method === "POST")
+        response = await adminAuthStepTwo(request, env);
+      else if (path === "/api/admin/auth/me" && request.method === "GET")
+        response = await adminMe(request, env);
+      else if (path === "/api/admin/auth/logout" && request.method === "POST")
+        response = await adminLogout(request, env);
+      else if (path === "/api/admin/security/secret-change/request" && request.method === "POST")
+        response = await requestAdminSecretChange(request, env);
+      else if (path === "/api/admin/security/secret-change/confirm" && request.method === "POST")
+        response = await confirmAdminSecretChange(request, env);
+      else if (path === "/api/admin/security/email-change/request" && request.method === "POST")
+        response = await requestAdminEmailChange(request, env);
+      else if (path === "/api/admin/security/email-change/confirm" && request.method === "POST")
+        response = await confirmAdminEmailChange(request, env);
+      else if (path === "/api/admin/security/email-test" && request.method === "POST")
+        response = await adminEmailTest(request, env);
+      else if (path === "/api/admin/notifications" || path.startsWith("/api/admin/notifications/"))
+        response = await adminNotifications(request, env, path);
+      else if (path === "/api/admin/audit" && request.method === "GET")
+        response = await adminAuditList(request, env);
+      else if (path === "/api/admin/search" && request.method === "GET")
+        response = await adminSearch(request, env);
       else if (path === "/api/admin/stats")
         response = await adminStats(request, env);
       else if (
@@ -1936,9 +2347,18 @@ export default {
       Object.entries(cors(request)).forEach(([key, value]) =>
         headers.set(key, value),
       );
+      headers.set("x-content-type-options", "nosniff");
+      headers.set("referrer-policy", "strict-origin-when-cross-origin");
+      headers.set("permissions-policy", "camera=(), microphone=(), geolocation=()");
+      if (path.startsWith("/api/admin/")) headers.set("cache-control", "no-store");
       return new Response(response.body, { status: response.status, headers });
     } catch (error) {
-      if (error instanceof Response) return error;
+      if (error instanceof Response) {
+        const headers = new Headers(error.headers);
+        Object.entries(cors(request)).forEach(([key, value]) => headers.set(key, value));
+        headers.set("cache-control", "no-store");
+        return new Response(error.body, { status: error.status, headers });
+      }
       console.error(
         JSON.stringify({
           event: "api_error",

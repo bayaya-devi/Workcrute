@@ -2,6 +2,8 @@
 TURNSTILE_SECRET_KEY=optional-turnstile-secret
 EMAIL_PROVIDER_API_KEY=configure-with-your-email-provider
 EMAIL_FROM=Workcrute <no-reply@your-domain.ma>
+ADMIN_AUTH_SECRET_1=replace-with-a-distinct-long-random-secret
+ADMIN_AUTH_SECRET_2=replace-with-another-distinct-long-random-secret
 
 ENVIRONMENT=development
 D1_DATABASE_NAME=workcrute
@@ -9,5 +11,3 @@ DEMO_RECRUITER_EMAIL=recruteur.demo@workcrute.test
 DEMO_RECRUITER_PASSWORD=replace-with-a-strong-demo-password
 DEMO_CANDIDATE_EMAIL=candidat.demo@workcrute.test
 DEMO_CANDIDATE_PASSWORD=replace-with-a-strong-demo-password
-DEMO_ADMIN_EMAIL=admin.demo@workcrute.test
-DEMO_ADMIN_PASSWORD=replace-with-a-strong-demo-password

@@ -16,3 +16,7 @@
 
 /sitemap.xml
   Cache-Control: public, max-age=3600
+
+/admin/*
+  Cache-Control: no-store
+  X-Robots-Tag: noindex, nofollow
