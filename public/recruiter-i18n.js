@@ -596,6 +596,9 @@ const ar = {
     of: "من",
     saveQuestion: "إضافة السؤال",
   };
+  Object.assign(fr,{availableTemplates:"Modèles Workcrute autorisés",templateHelp:"Démarrez avec un modèle administré, puis adaptez sa copie à votre offre.",useTemplate:"Utiliser ce modèle",questionnaireScore:"Score questionnaire",criterionNotSatisfied:"Critère non satisfait"});
+  Object.assign(en,{availableTemplates:"Approved Workcrute templates",templateHelp:"Start with an administered template, then adapt its copy to your job.",useTemplate:"Use this template",questionnaireScore:"Questionnaire score",criterionNotSatisfied:"Criterion not met"});
+  Object.assign(ar,{availableTemplates:"نماذج Workcrute المعتمدة",templateHelp:"ابدأ بنموذج تديره المشرف ثم عدّل نسخته بما يناسب الوظيفة.",useTemplate:"استخدام هذا النموذج",questionnaireScore:"نتيجة الاستبيان",criterionNotSatisfied:"معيار غير مستوفى"});
   const packs = { fr, en, ar },
     getLanguage = () =>
       ["fr", "en", "ar"].includes(localStorage.getItem("wc_language"))
