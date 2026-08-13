@@ -17,6 +17,7 @@
     "test:admin-emails": "node scripts/test-admin-emails.mjs",
     "test:errors": "node scripts/test-error-management.mjs",
     "test:admin-settings": "node scripts/test-admin-settings.mjs",
+    "test:referrals": "node scripts/test-candidate-referrals.mjs",
     "seed:demo": "node scripts/seed-demo.js"
   },
   "devDependencies": {

@@ -12,7 +12,7 @@
       available: "Disponible", unavailable: "Indisponible", noActivity: "Aucune activité pour ce filtre.",
       loadError: "Impossible de charger le monitoring. Les données affichées n’ont pas été inventées.",
       candidates: "Candidats", recruiters: "Recruteurs", companies: "Entreprises", active_jobs: "Offres actives",
-      applications: "Candidatures", interviews: "Entretiens", registrations: "Inscriptions aujourd’hui",
+      applications: "Candidatures", referrals: "Profils transmis", interviews: "Entretiens", registrations: "Inscriptions aujourd’hui",
       todayApplications: "Candidatures aujourd’hui", jobs_published: "Offres publiées aujourd’hui",
       interviews_created: "Entretiens créés aujourd’hui", errors: "Erreurs", todayErrors: "Erreurs aujourd’hui",
       all: "Tous", jobs: "Offres", security: "Sécurité",
@@ -27,7 +27,7 @@
       available: "Available", unavailable: "Unavailable", noActivity: "No activity for this filter.",
       loadError: "Monitoring could not be loaded. No displayed data has been fabricated.",
       candidates: "Candidates", recruiters: "Recruiters", companies: "Companies", active_jobs: "Active jobs",
-      applications: "Applications", interviews: "Interviews", registrations: "Registrations today",
+      applications: "Applications", referrals: "Profile referrals", interviews: "Interviews", registrations: "Registrations today",
       todayApplications: "Applications today", jobs_published: "Jobs published today",
       interviews_created: "Interviews created today", errors: "Errors", todayErrors: "Errors today", all: "All", jobs: "Jobs", security: "Security",
     },
@@ -41,7 +41,7 @@
       available: "متاح", unavailable: "غير متاح", noActivity: "لا يوجد نشاط لهذا الفلتر.",
       loadError: "تعذر تحميل المراقبة. لم يتم اختلاق أي بيانات معروضة.",
       candidates: "المرشحون", recruiters: "مسؤولو التوظيف", companies: "الشركات", active_jobs: "الوظائف النشطة",
-      applications: "طلبات التوظيف", interviews: "المقابلات", registrations: "تسجيلات اليوم",
+      applications: "طلبات التوظيف", referrals: "الملفات المرسلة", interviews: "المقابلات", registrations: "تسجيلات اليوم",
       todayApplications: "طلبات اليوم", jobs_published: "الوظائف المنشورة اليوم",
       interviews_created: "مقابلات أُنشئت اليوم", errors: "الأخطاء", todayErrors: "أخطاء اليوم", all: "الكل", jobs: "الوظائف", security: "الأمان",
     },
@@ -51,8 +51,8 @@
     en: { USER_REGISTERED:"New account registered.", USER_LOGIN:"User signed in.", USER_LOGOUT:"User signed out.", PROFILE_UPDATED:"Profile updated.", DOCUMENT_UPLOADED:"Document uploaded.", JOB_CREATED:"Job created.", JOB_PUBLISHED:"Job published.", APPLICATION_CREATED:"Application submitted.", APPLICATION_STATUS_CHANGED:"Application status updated.", INTERVIEW_CREATED:"Interview created.", ADMIN_LOGIN:"Administrator signed in.", ADMIN_SETTING_CHANGED:"Administrator setting changed.", SYSTEM_ERROR:"System error detected." },
     ar: { USER_REGISTERED:"تم تسجيل حساب جديد.", USER_LOGIN:"تم تسجيل دخول مستخدم.", USER_LOGOUT:"تم تسجيل خروج مستخدم.", PROFILE_UPDATED:"تم تحديث الملف الشخصي.", DOCUMENT_UPLOADED:"تمت إضافة مستند.", JOB_CREATED:"تم إنشاء وظيفة.", JOB_PUBLISHED:"تم نشر وظيفة.", APPLICATION_CREATED:"تم إرسال طلب توظيف.", APPLICATION_STATUS_CHANGED:"تم تحديث حالة الطلب.", INTERVIEW_CREATED:"تم إنشاء مقابلة.", ADMIN_LOGIN:"تم تسجيل دخول المسؤول.", ADMIN_SETTING_CHANGED:"تم تعديل إعداد إداري.", SYSTEM_ERROR:"تم اكتشاف خطأ في النظام." },
   };
-  const totalKeys = ["candidates", "recruiters", "companies", "active_jobs", "applications", "interviews"];
-  const todayKeys = ["registrations", "applications", "jobs_published", "interviews_created", "errors"];
+  const totalKeys = ["candidates", "recruiters", "companies", "active_jobs", "applications", "referrals", "interviews"];
+  const todayKeys = ["registrations", "applications", "referrals", "jobs_published", "interviews_created", "errors"];
   const filters = ["all", "candidates", "recruiters", "jobs", "applications", "interviews", "security", "errors"];
   const state = { language: localStorage.getItem("workcrute-admin-language") || "fr", category: "all", items: [], lastEventId: 0, timer: null, busy: false, loaded: false, data: null };
   const t = (key) => (copy[state.language] || copy.fr)[key] || key;
@@ -125,7 +125,9 @@
       const time = document.createElement("time"); time.dateTime = event.created_at; time.textContent = formatter.format(parseDate(event.created_at));
       const content = document.createElement("div");
       const message = document.createElement("strong");
-      if (event.event_type === "USER_REGISTERED") {
+      if (event.event_type === "CANDIDATE_REFERRAL_CREATED") {
+        message.textContent = state.language === "fr" ? "Profil candidat transmis à un recruteur." : state.language === "ar" ? "تم إرسال ملف مرشح إلى مسؤول توظيف." : "Candidate profile sent to a recruiter.";
+      } else if (event.event_type === "USER_REGISTERED") {
         message.textContent = state.language === "fr"
           ? event.category === "recruiters" ? "Nouveau recruteur inscrit." : "Nouveau candidat inscrit."
           : state.language === "ar"

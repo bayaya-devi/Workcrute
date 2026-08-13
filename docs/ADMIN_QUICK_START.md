@@ -15,6 +15,10 @@ Ouvrez **Tableau de bord** pour les indicateurs et le flux en direct. Ouvrez **J
 
 Ouvrez **Candidats**, recherchez le nom ou l’e-mail, cliquez sur la fiche puis sur **Modifier**. Enregistrez et vérifiez le résultat. Utilisez **Suspendre** seulement lorsqu’il faut couper l’accès au compte.
 
+## Envoyer un candidat à un recruteur
+
+Ouvrez **Candidats** ou **Candidatures**, puis cliquez sur **Envoyer au recruteur**. Sélectionnez le recruteur, l’offre éventuelle et uniquement les documents à partager. Confirmez le récapitulatif. En cas de doublon, vérifiez la transmission précédente avant de forcer un nouvel envoi. Le suivi complet est disponible dans **Transmissions**.
+
 ## Modifier un recruteur
 
 Ouvrez **Recruteurs**, recherchez le compte, ouvrez sa fiche puis modifiez les informations autorisées. Les changements sont journalisés.

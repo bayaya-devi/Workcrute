@@ -47,6 +47,7 @@ Le fournisseur API actuellement pris en charge est Resend ; un binding `EMAIL` p
 - profils, documents, offres, favoris, alertes et candidatures ;
 - questionnaires, scoring déterministe et logique conditionnelle ;
 - pipeline recruteur liste/Kanban et entretiens ;
+- intermédiation administrateur : transmission sélective de profils et documents aux recruteurs, historique, notifications et email avec retry ;
 - Control Center admin avec double authentification ;
 - gestion candidats, recruteurs, entreprises, offres, candidatures et entretiens ;
 - dashboard et activité incrémentale ;

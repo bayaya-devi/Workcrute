@@ -2,6 +2,7 @@
   if (!window.WorkcruteErrors && !document.querySelector('script[data-error-system]')) { const script=document.createElement("script");script.dataset.errorSystem="";script.src="/error-system.js";document.head.append(script); }
   const messages = {
     fr: {
+      referrals: "Transmissions",
       chatbot: "Chatbot / FAQ",
       dashboard: "Centre de contrôle",
       activity: "Activité",
@@ -23,6 +24,7 @@
       control: "Workcrute Control Center",
     },
     en: {
+      referrals: "Referrals",
       chatbot: "Chatbot / FAQ",
       dashboard: "Control Center",
       activity: "Activity",
@@ -44,6 +46,7 @@
       control: "Workcrute Control Center",
     },
     ar: {
+      referrals: "الملفات المرسلة",
       chatbot: "المساعد / الأسئلة",
       dashboard: "مركز التحكم",
       activity: "النشاط",

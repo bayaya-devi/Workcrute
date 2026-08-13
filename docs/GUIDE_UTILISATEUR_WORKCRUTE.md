@@ -146,7 +146,7 @@ Selon le rendez-vous, vous pouvez confirmer, refuser ou demander une modificatio
 
 ## 16. Utiliser l’espace recruteur
 
-Le tableau de bord recruteur affiche les offres actives, les nouvelles candidatures, les présélections, les entretiens, les performances des offres et l’activité récente. Les recommandations ne sont affichées que lorsqu’un matching réel est calculable.
+Le tableau de bord recruteur affiche les offres actives, les profils transmis par Workcrute, les présélections, les entretiens et les performances des offres. Un recruteur ne voit jamais la base globale des candidats par défaut : seuls les profils explicitement transmis par un administrateur lui sont accessibles.
 
 ## 17. Créer une offre
 
@@ -169,7 +169,9 @@ Vous pouvez définir une question obligatoire, un poids, un critère éliminatoi
 
 ## 19. Gestion des candidats
 
-Les pages **Candidatures** et **Recherche candidats** permettent de consulter l’identité professionnelle, la ville, la disponibilité, les expériences, les compétences, les documents et les réponses autorisées.
+La page **Profils reçus** permet de consulter l’identité professionnelle, la ville, la disponibilité, les expériences, les compétences et uniquement les documents autorisés lors de la transmission. Une candidature directe reste dans l’espace administrateur jusqu’à ce que Workcrute la transmette au recruteur concerné.
+
+Depuis un profil reçu, le recruteur peut changer le statut, ajouter une note interne, contacter le candidat, télécharger les documents autorisés et planifier un entretien. Les notes internes ne sont jamais visibles du candidat.
 
 Les actions possibles comprennent la présélection, le contact, le téléchargement du CV, la planification d’un entretien, le refus et l’ajout d’une note interne. Une note interne n’est jamais visible par le candidat.
 
@@ -192,6 +194,17 @@ Après plusieurs erreurs, l’accès peut être temporairement bloqué. Attendez
 ## 23. Gestion des candidats par l’admin
 
 Ouvrez **Candidats** pour rechercher et filtrer les comptes. La fiche permet de consulter ou modifier les informations autorisées, suspendre, réactiver, exporter ou supprimer un compte.
+
+### Transmettre un profil à un recruteur
+
+1. Depuis **Candidats** ou **Candidatures**, cliquez sur **Envoyer au recruteur**, ou ouvrez **Transmissions**.
+2. Sélectionnez un ou plusieurs candidats.
+3. Choisissez le recruteur, puis éventuellement l’offre concernée.
+4. Cochez uniquement les documents que le recruteur doit pouvoir consulter.
+5. Ajoutez un message utile, vérifiez le récapitulatif puis confirmez.
+6. Si le profil a déjà été envoyé pour la même offre, Workcrute affiche un avertissement. Un second clic explicite est nécessaire pour forcer le renvoi.
+
+Le recruteur reçoit une notification et, si ses préférences email l’autorisent, un email. La page **Transmissions** conserve le statut et l’historique de consultation.
 
 La suspension coupe les sessions actives. Avant une suppression, vérifiez les conséquences sur les candidatures et documents liés.
 

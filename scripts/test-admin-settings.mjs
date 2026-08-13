@@ -12,7 +12,7 @@ try{
  await ready();let r=await req("/api/public/config",{auth:false});check(r.response.ok&&r.data.general.siteName,"configuration publique disponible");
  r=await req("/api/admin/platform-settings");check(r.response.status===401,"paramètres admin protégés");
  r=await req("/api/admin/auth/step-1",{method:"POST",body:{secret:s1}});check(r.response.ok,"secret admin niveau 1");r=await req("/api/admin/auth/step-2",{method:"POST",body:{secret:s2}});check(r.response.ok,"secret admin niveau 2");
- r=await req("/api/admin/platform-settings");check(r.response.ok&&Object.keys(r.data.settings).length===9,"neuf sections métier chargées");
+ r=await req("/api/admin/platform-settings");check(r.response.ok&&Object.keys(r.data.settings).length===10&&r.data.settings.recruiter_access.globalCandidateDatabaseEnabled===false,"dix sections métier chargées, accès global recruteur désactivé");
  r=await req("/api/admin/platform-settings/general",{method:"PATCH",body:{siteName:"Workcrute Test",supportEmail:"support@example.com",supportPhone:"+212600000000"}});check(r.response.ok&&r.data.value.siteName==="Workcrute Test","général modifiable");
  r=await req("/api/admin/platform-settings/matching",{method:"PATCH",body:{enabled:true,recommendedThreshold:70,weights:{skills:24,experience:15,education:10,location:10,contract:10,availability:10,questionnaire:20}}});check(r.response.status===400,"poids invalides refusés");
  r=await req("/api/admin/platform-settings/registrations",{method:"PATCH",body:{candidateEnabled:false,recruiterEnabled:true,emailVerificationRequired:true,cvRequired:false}});check(r.response.ok,"inscriptions candidat désactivables");

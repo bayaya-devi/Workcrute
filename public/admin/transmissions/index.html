@@ -1,0 +1,14 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Transmissions | Workcrute</title><link rel="stylesheet" href="../../admin-system.css"></head>
+<body class="admin-body" data-admin-page="referrals"><template data-admin-content>
+<header class="adm-head"><div><span class="adm-kicker" data-r="kicker">Intermédiation</span><h1 data-r="title">Transmissions de profils</h1><p data-r="subtitle">Sélectionnez exactement les profils et documents accessibles au recruteur.</p></div><button class="adm-button primary" type="button" data-new-referral>Envoyer au recruteur</button></header>
+<section class="adm-card"><div class="adm-section-head"><div><h2 data-r="history">Historique des transmissions</h2><p data-r="historyHelp">Chaque consultation et changement de statut est traçable.</p></div><button class="adm-button secondary" data-refresh type="button">Actualiser</button></div><div data-referral-list class="adm-loading">Chargement…</div></section>
+<dialog class="adm-dialog" data-referral-dialog><form class="adm-dialog-shell" data-referral-form><header><div><span class="adm-kicker">Workcrute</span><h2 data-r="send">Envoyer au recruteur</h2></div><button class="adm-icon-btn" type="button" data-close>×</button></header><div class="adm-dialog-body adm-form-grid">
+<fieldset class="adm-span-all adm-field"><legend data-r="candidates">1. Candidat(s)</legend><div data-candidate-options class="adm-choice-grid"></div></fieldset>
+<label class="adm-field"><span data-r="recruiter">2. Recruteur</span><select class="adm-input" name="recruiterId" required></select></label>
+<label class="adm-field"><span data-r="job">3. Offre (facultative)</span><select class="adm-input" name="jobId"><option value="">Aucune offre</option></select></label>
+<fieldset class="adm-span-all adm-field"><legend data-r="documents">4. Documents autorisés</legend><div data-document-options class="adm-choice-grid"><p>Sélectionnez d’abord un candidat.</p></div></fieldset>
+<label class="adm-field adm-span-all"><span data-r="message">5. Message au recruteur</span><textarea class="adm-input" name="message" maxlength="2000" rows="4"></textarea></label>
+<div class="adm-span-all adm-card" data-summary></div><div class="adm-span-all adm-error" data-duplicate hidden></div>
+</div><footer class="adm-actions"><button class="adm-button secondary" type="button" data-close>Annuler</button><button class="adm-button primary" type="submit">Confirmer l’envoi</button></footer></form></dialog>
+<div class="adm-toast" data-referral-toast hidden></div>
+</template><script src="../../admin-layout.js"></script><script src="../../admin-i18n.js"></script><script src="../../admin-control-center.js"></script><script src="../../admin-referrals.js"></script></body></html>

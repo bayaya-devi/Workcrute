@@ -47,8 +47,8 @@ try {
   result = await request("/api/admin/dashboard");
   check(result.response.ok, "dashboard chargé");
   check(["operational", "degraded", "incident"].includes(result.data.system?.status), "état système calculé");
-  check(Object.keys(result.data.totals || {}).length === 6, "six indicateurs plateforme réels");
-  check(Object.keys(result.data.today || {}).length === 5, "cinq statistiques du jour réelles");
+  check(Object.keys(result.data.totals || {}).length === 7, "sept indicateurs plateforme réels, transmissions incluses");
+  check(Object.keys(result.data.today || {}).length === 6, "six statistiques du jour réelles, transmissions incluses");
   check(result.data.pollAfterMs === 20000, "polling incrémental configuré à 20 secondes");
   const baseline = result.data.lastEventId;
 

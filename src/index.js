@@ -2,6 +2,8 @@ import { FAQ_CATALOG } from "./faq-catalog.js";
 import {
   enqueueAdminEmail,
   processAdminEmailOutbox,
+  enqueueRecruiterReferralEmail,
+  processRecruiterReferralEmails,
 } from "./admin-email.js";
 import {
   classifyError,
@@ -1193,16 +1195,6 @@ async function applications(request, env, path) {
         env.DB.prepare(
           "INSERT INTO application_status_history(id,application_id,actor_user_id,status) VALUES(?,?,?,?)",
         ).bind(crypto.randomUUID(), id, user.id, "submitted"),
-        env.DB.prepare(
-          "INSERT INTO notifications(id,user_id,type,title,body,href) VALUES(?,?,?,?,?,?)",
-        ).bind(
-          crypto.randomUUID(),
-          job.recruiter_user_id,
-          "application",
-          "Nouvelle candidature",
-          `Une candidature a été reçue pour ${job.title}`,
-          "/recruteur/candidats",
-        ),
       ]);
       await platformEvent(
         env,
@@ -1442,17 +1434,17 @@ const applicationStatuses = [
 async function recruiterOverview(request, env) {
   const user = await requireUser(request, env, ["recruiter"]);
   const stats = await env.DB.prepare(
-    "SELECT (SELECT COUNT(*) FROM job_offers WHERE recruiter_user_id=? AND status='published') active_jobs,(SELECT COUNT(*) FROM applications a JOIN job_offers j ON j.id=a.job_offer_id WHERE j.recruiter_user_id=? AND a.status='submitted') new_applications,(SELECT COUNT(*) FROM applications a JOIN job_offers j ON j.id=a.job_offer_id WHERE j.recruiter_user_id=? AND a.status='shortlisted') shortlisted,(SELECT COUNT(*) FROM interviews WHERE recruiter_user_id=? AND starts_at>CURRENT_TIMESTAMP AND status NOT IN ('cancelled','declined')) interviews",
+    "SELECT (SELECT COUNT(*) FROM job_offers WHERE recruiter_user_id=? AND status='published') active_jobs,(SELECT COUNT(*) FROM candidate_referrals WHERE recruiter_user_id=? AND status='transmitted') new_applications,(SELECT COUNT(*) FROM candidate_referrals WHERE recruiter_user_id=? AND status='shortlisted') shortlisted,(SELECT COUNT(*) FROM candidate_referral_interviews WHERE recruiter_user_id=? AND starts_at>CURRENT_TIMESTAMP AND status NOT IN ('cancelled','declined')) interviews",
   )
     .bind(user.id, user.id, user.id, user.id)
     .first();
   const { results: recent = [] } = await env.DB.prepare(
-    "SELECT a.id,a.status,a.created_at,j.title,cp.first_name,cp.last_name,cp.professional_title,cp.city FROM applications a JOIN job_offers j ON j.id=a.job_offer_id JOIN candidate_profiles cp ON cp.user_id=a.candidate_user_id WHERE j.recruiter_user_id=? ORDER BY a.created_at DESC LIMIT 6",
+    "SELECT r.id,r.status,r.sent_at created_at,COALESCE(j.title,'Profil transmis') title,cp.first_name,cp.last_name,cp.professional_title,cp.city FROM candidate_referrals r LEFT JOIN job_offers j ON j.id=r.job_offer_id JOIN candidate_profiles cp ON cp.user_id=r.candidate_user_id WHERE r.recruiter_user_id=? ORDER BY r.sent_at DESC LIMIT 6",
   )
     .bind(user.id)
     .all();
   const { results: performance = [] } = await env.DB.prepare(
-    "SELECT j.id,j.title,j.status,j.published_at,COUNT(a.id) applications,SUM(CASE WHEN a.status='shortlisted' THEN 1 ELSE 0 END) shortlisted,SUM(CASE WHEN a.status='accepted' THEN 1 ELSE 0 END) accepted FROM job_offers j LEFT JOIN applications a ON a.job_offer_id=j.id WHERE j.recruiter_user_id=? GROUP BY j.id ORDER BY applications DESC,j.created_at DESC LIMIT 6",
+    "SELECT j.id,j.title,j.status,j.published_at,COUNT(r.id) applications,SUM(CASE WHEN r.status='shortlisted' THEN 1 ELSE 0 END) shortlisted,SUM(CASE WHEN r.status='accepted' THEN 1 ELSE 0 END) accepted FROM job_offers j LEFT JOIN candidate_referrals r ON r.job_offer_id=j.id AND r.recruiter_user_id=j.recruiter_user_id WHERE j.recruiter_user_id=? GROUP BY j.id ORDER BY applications DESC,j.created_at DESC LIMIT 6",
   )
     .bind(user.id)
     .all();
@@ -1885,7 +1877,7 @@ async function recruiterApplications(request, env, path) {
     const url = new URL(request.url),
       jobId = clean(url.searchParams.get("jobId"), 80);
     let sql =
-        "SELECT a.id,a.status,a.created_at,a.updated_at,a.job_offer_id,j.title,cp.first_name,cp.last_name,cp.professional_title,cp.city,cp.availability FROM applications a JOIN job_offers j ON j.id=a.job_offer_id JOIN candidate_profiles cp ON cp.user_id=a.candidate_user_id WHERE j.recruiter_user_id=?",
+        "SELECT a.id,CASE r.status WHEN 'transmitted' THEN 'submitted' WHEN 'viewed' THEN 'reviewing' ELSE r.status END status,a.created_at,r.updated_at,a.job_offer_id,j.title,cp.first_name,cp.last_name,cp.professional_title,cp.city,cp.availability FROM applications a JOIN candidate_referrals r ON r.application_id=a.id JOIN job_offers j ON j.id=a.job_offer_id JOIN candidate_profiles cp ON cp.user_id=a.candidate_user_id WHERE r.recruiter_user_id=?",
       params = [user.id];
     if (jobId) {
       sql += " AND j.id=?";
@@ -1900,7 +1892,7 @@ async function recruiterApplications(request, env, path) {
   }
   const id = path.split("/")[4],
     application = await env.DB.prepare(
-      "SELECT a.*,j.*,a.id application_id,a.status application_status,j.id job_id,j.city job_city,cp.*,cp.city candidate_city,u.email candidate_email,c.name company_name FROM applications a JOIN job_offers j ON j.id=a.job_offer_id JOIN candidate_profiles cp ON cp.user_id=a.candidate_user_id JOIN users u ON u.id=a.candidate_user_id LEFT JOIN companies c ON c.id=j.company_id WHERE a.id=? AND j.recruiter_user_id=?",
+      "SELECT a.*,j.*,a.id application_id,r.id referral_id,CASE r.status WHEN 'transmitted' THEN 'submitted' WHEN 'viewed' THEN 'reviewing' ELSE r.status END application_status,j.id job_id,j.city job_city,cp.*,cp.city candidate_city,u.email candidate_email,c.name company_name FROM applications a JOIN candidate_referrals r ON r.application_id=a.id JOIN job_offers j ON j.id=a.job_offer_id JOIN candidate_profiles cp ON cp.user_id=a.candidate_user_id JOIN users u ON u.id=a.candidate_user_id LEFT JOIN companies c ON c.id=j.company_id WHERE a.id=? AND r.recruiter_user_id=?",
     )
       .bind(id, user.id)
       .first();
@@ -1925,9 +1917,9 @@ async function recruiterApplications(request, env, path) {
         .bind(id)
         .all(),
       env.DB.prepare(
-        "SELECT id,kind,original_name,size_bytes,is_default,created_at FROM documents WHERE user_id=? AND deleted_at IS NULL ORDER BY created_at DESC",
+        "SELECT d.id,d.kind,d.original_name,d.size_bytes,d.is_default,d.created_at FROM documents d JOIN candidate_referral_documents rd ON rd.document_id=d.id WHERE rd.referral_id=? AND d.deleted_at IS NULL ORDER BY d.created_at DESC",
       )
-        .bind(application.candidate_user_id)
+        .bind(application.referral_id)
         .all(),
       application.questionnaire_id
         ? env.DB.prepare(
@@ -1958,9 +1950,9 @@ async function recruiterApplications(request, env, path) {
       status = applicationStatuses.includes(body.status) && platform.applications.statuses.includes(body.status) ? body.status : null;
     if (!status) return bad("Statut invalide.");
     await env.DB.batch([
-      env.DB.prepare(
-        "UPDATE applications SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
-      ).bind(status, id),
+      env.DB.prepare("UPDATE applications SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(status, id),
+      env.DB.prepare("UPDATE candidate_referrals SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(status === "reviewing" ? "viewed" : status, application.referral_id),
+      env.DB.prepare("INSERT INTO candidate_referral_history(id,referral_id,status,actor_type,actor_id) VALUES(?,?,?,?,?)").bind(crypto.randomUUID(),application.referral_id,status === "reviewing" ? "viewed" : status,"recruiter",user.id),
       env.DB.prepare(
         "INSERT INTO application_status_history(id,application_id,actor_user_id,status) VALUES(?,?,?,?)",
       ).bind(crypto.randomUUID(), id, user.id, status),
@@ -1986,7 +1978,7 @@ async function recruiterNotes(request, env, path) {
   const user = await requireUser(request, env, ["recruiter"]),
     applicationId = path.split("/")[4],
     owned = await env.DB.prepare(
-      "SELECT a.id FROM applications a JOIN job_offers j ON j.id=a.job_offer_id WHERE a.id=? AND j.recruiter_user_id=?",
+      "SELECT a.id FROM applications a JOIN candidate_referrals r ON r.application_id=a.id WHERE a.id=? AND r.recruiter_user_id=?",
     )
       .bind(applicationId, user.id)
       .first();
@@ -2004,14 +1996,15 @@ async function recruiterNotes(request, env, path) {
   return json({ note: { id } }, 201);
 }
 async function recruiterCandidates(request, env, path) {
-  const user = await requireUser(request, env, ["recruiter"]);
+  const user = await requireUser(request, env, ["recruiter"]), platform = await getPlatformSettings(env), globalAccess = platform.recruiter_access?.globalCandidateDatabaseEnabled === true;
   if (path === "/api/recruiter/candidates") {
     const url = new URL(request.url),
       q = clean(url.searchParams.get("q"), 100),
       city = clean(url.searchParams.get("city"), 100);
-    let sql =
-        "SELECT cp.user_id,cp.first_name,cp.last_name,cp.professional_title,cp.city,cp.availability,cp.skills_json,cp.experience_json,cp.education_json,cp.languages_json FROM candidate_profiles cp WHERE cp.profile_visible=1",
-      params = [];
+    let sql = globalAccess
+        ? "SELECT 'global:'||cp.user_id referral_id,'viewed' status,cp.updated_at sent_at,NULL job_offer_id,NULL admin_message,cp.user_id,cp.first_name,cp.last_name,cp.professional_title,cp.city,cp.availability,cp.skills_json,cp.experience_json,cp.education_json,cp.languages_json,'Base globale' job_title FROM candidate_profiles cp WHERE cp.profile_visible=1"
+        : "SELECT r.id referral_id,r.status,r.sent_at,r.job_offer_id,r.admin_message,cp.user_id,cp.first_name,cp.last_name,cp.professional_title,cp.city,cp.availability,cp.skills_json,cp.experience_json,cp.education_json,cp.languages_json,COALESCE(j.title,'Profil transmis') job_title FROM candidate_referrals r JOIN candidate_profiles cp ON cp.user_id=r.candidate_user_id LEFT JOIN job_offers j ON j.id=r.job_offer_id WHERE r.recruiter_user_id=?",
+      params = globalAccess ? [] : [user.id];
     if (q) {
       sql +=
         " AND (cp.first_name LIKE ? OR cp.last_name LIKE ? OR cp.professional_title LIKE ? OR cp.skills_json LIKE ?)";
@@ -2022,46 +2015,85 @@ async function recruiterCandidates(request, env, path) {
       params.push(`%${city}%`);
     }
     const { results = [] } = await env.DB.prepare(
-      sql + " ORDER BY cp.updated_at DESC LIMIT 50",
+      sql + (globalAccess ? " ORDER BY cp.updated_at DESC LIMIT 100" : " ORDER BY r.sent_at DESC LIMIT 100"),
     )
       .bind(...params)
       .all();
     return json({ items: results, matchingScore: null });
   }
-  const candidateId = path.split("/").pop(),
+  const candidatePathParts = path.split("/").filter(Boolean),
+    referralId = candidatePathParts[3];
+  if(referralId?.startsWith("global:")){
+    if(!globalAccess||request.method!=="GET")return bad("Accès à ce profil interdit.",403);
+    const candidateId=referralId.slice(7),candidate=await env.DB.prepare("SELECT cp.*,u.email,'viewed' referral_status,'Base globale' job_title FROM candidate_profiles cp JOIN users u ON u.id=cp.user_id WHERE cp.user_id=? AND cp.profile_visible=1").bind(candidateId).first();
+    if(!candidate)return bad("Accès à ce profil interdit.",403);
+    await env.DB.prepare("INSERT INTO profile_views(id,profile_owner_id,viewer_user_id,viewer_role,source) VALUES(?,?,?,?,?)").bind(crypto.randomUUID(),candidateId,user.id,"recruiter","global_candidate_database").run();
+    const {results:documents=[]}=await env.DB.prepare("SELECT id,kind,original_name,size_bytes,is_default,created_at FROM documents WHERE user_id=? AND deleted_at IS NULL").bind(candidateId).all();
+    return json({candidate,documents,history:[],notes:[],matching:{score:null,breakdown:[]}});
+  }
+  const
     candidate = await env.DB.prepare(
-      "SELECT cp.*,u.email FROM candidate_profiles cp JOIN users u ON u.id=cp.user_id WHERE cp.user_id=? AND (cp.profile_visible=1 OR EXISTS(SELECT 1 FROM applications a JOIN job_offers j ON j.id=a.job_offer_id WHERE a.candidate_user_id=cp.user_id AND j.recruiter_user_id=?))",
+      "SELECT r.id referral_id,r.status referral_status,r.sent_at,r.admin_message,r.job_offer_id,r.application_id,cp.*,u.email,COALESCE(j.title,'Profil transmis') job_title,c.name company_name FROM candidate_referrals r JOIN candidate_profiles cp ON cp.user_id=r.candidate_user_id JOIN users u ON u.id=cp.user_id LEFT JOIN job_offers j ON j.id=r.job_offer_id LEFT JOIN companies c ON c.id=r.company_id WHERE r.id=? AND r.recruiter_user_id=?",
     )
-      .bind(candidateId, user.id)
+      .bind(referralId, user.id)
       .first();
-  if (!candidate) return bad("Candidat introuvable.", 404);
+  if (!candidate) return bad("Accès à ce profil interdit.", 403);
+  if (path.endsWith("/notes") && request.method === "POST") {
+    const body = await request.json().catch(() => ({})), content = clean(body.content, 2000);
+    if (!content) return bad("La note est vide.");
+    const id = crypto.randomUUID();
+    await env.DB.prepare("INSERT INTO candidate_referral_notes(id,referral_id,author_recruiter_user_id,content) VALUES(?,?,?,?)").bind(id,referralId,user.id,content).run();
+    await audit(env,user,"referral_note_created","candidate_referral",referralId);
+    return json({ note: { id } }, 201);
+  }
+  if (request.method === "PATCH") {
+    const body = await request.json().catch(() => ({}));
+    const status = ["viewed","shortlisted","interview","accepted","rejected"].includes(body.status) ? body.status : null;
+    if (!status) return bad("Statut invalide.");
+    await env.DB.batch([
+      env.DB.prepare("UPDATE candidate_referrals SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(status,referralId),
+      env.DB.prepare("INSERT INTO candidate_referral_history(id,referral_id,status,actor_type,actor_id) VALUES(?,?,?,?,?)").bind(crypto.randomUUID(),referralId,status,"recruiter",user.id),
+    ]);
+    await audit(env,user,"referral_status_changed","candidate_referral",referralId,{status});
+    return json({ ok:true,status });
+  }
+  if (candidate.referral_status === "transmitted") {
+    await env.DB.batch([
+      env.DB.prepare("UPDATE candidate_referrals SET status='viewed',viewed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(referralId),
+      env.DB.prepare("INSERT INTO candidate_referral_history(id,referral_id,status,actor_type,actor_id) VALUES(?,?,'viewed','recruiter',?)").bind(crypto.randomUUID(),referralId,user.id),
+    ]);
+    candidate.referral_status = "viewed";
+  }
   await env.DB.prepare(
     "INSERT INTO profile_views(id,profile_owner_id,viewer_user_id,viewer_role,source) VALUES(?,?,?,?,?)",
   )
     .bind(
       crypto.randomUUID(),
-      candidateId,
+      candidate.user_id,
       user.id,
       "recruiter",
-      "candidate_search",
+      "admin_referral",
     )
     .run();
   const { results: documents = [] } = await env.DB.prepare(
-    "SELECT id,kind,original_name,size_bytes,is_default,created_at FROM documents WHERE user_id=? AND deleted_at IS NULL",
+    "SELECT d.id,d.kind,d.original_name,d.size_bytes,d.is_default,d.created_at FROM documents d JOIN candidate_referral_documents rd ON rd.document_id=d.id WHERE rd.referral_id=? AND d.deleted_at IS NULL",
   )
-    .bind(candidateId)
+    .bind(referralId)
     .all();
+  const { results: history = [] } = await env.DB.prepare("SELECT status,actor_type,created_at FROM candidate_referral_history WHERE referral_id=? ORDER BY created_at").bind(referralId).all();
+  const { results: notes = [] } = await env.DB.prepare("SELECT id,content,created_at FROM candidate_referral_notes WHERE referral_id=? AND author_recruiter_user_id=? ORDER BY created_at DESC").bind(referralId,user.id).all();
   return json({
     candidate,
     documents,
+    history,
+    notes,
     matching: { score: null, breakdown: [] },
   });
 }
 async function recruiterDocument(request, env, path) {
-  const user = await requireUser(request, env, ["recruiter"]),
-    id = path.split("/")[4],
-    doc = await env.DB.prepare(
-      "SELECT d.* FROM documents d WHERE d.id=? AND d.deleted_at IS NULL AND EXISTS(SELECT 1 FROM applications a JOIN job_offers j ON j.id=a.job_offer_id WHERE a.candidate_user_id=d.user_id AND j.recruiter_user_id=?)",
+  const user = await requireUser(request, env, ["recruiter"]), id = path.split("/")[4], platform=await getPlatformSettings(env), globalAccess=platform.recruiter_access?.globalCandidateDatabaseEnabled===true;
+  const doc = globalAccess ? await env.DB.prepare("SELECT d.* FROM documents d JOIN candidate_profiles cp ON cp.user_id=d.user_id WHERE d.id=? AND d.deleted_at IS NULL AND cp.profile_visible=1").bind(id).first() : await env.DB.prepare(
+      "SELECT d.* FROM documents d JOIN candidate_referral_documents rd ON rd.document_id=d.id JOIN candidate_referrals r ON r.id=rd.referral_id WHERE d.id=? AND d.deleted_at IS NULL AND r.recruiter_user_id=?",
     )
       .bind(id, user.id)
       .first();
@@ -2078,18 +2110,33 @@ async function recruiterDocument(request, env, path) {
 async function recruiterInterviews(request, env, path) {
   const user = await requireUser(request, env, ["recruiter"]);
   if (path === "/api/recruiter/interviews" && request.method === "GET") {
-    const { results = [] } = await env.DB.prepare(
+    const { results: applicationInterviews = [] } = await env.DB.prepare(
       "SELECT i.*,j.title,cp.first_name,cp.last_name,c.name company_name FROM interviews i JOIN applications a ON a.id=i.application_id JOIN job_offers j ON j.id=a.job_offer_id JOIN candidate_profiles cp ON cp.user_id=i.candidate_user_id LEFT JOIN companies c ON c.id=j.company_id WHERE i.recruiter_user_id=? ORDER BY i.starts_at",
     )
       .bind(user.id)
       .all();
-    return json({ items: results });
+    const { results: referralInterviews = [] } = await env.DB.prepare("SELECT i.*,r.application_id,COALESCE(j.title,'Profil transmis') title,cp.first_name,cp.last_name,c.name company_name FROM candidate_referral_interviews i JOIN candidate_referrals r ON r.id=i.referral_id LEFT JOIN job_offers j ON j.id=r.job_offer_id JOIN candidate_profiles cp ON cp.user_id=i.candidate_user_id LEFT JOIN companies c ON c.id=r.company_id WHERE i.recruiter_user_id=? ORDER BY i.starts_at").bind(user.id).all();
+    return json({ items: [...applicationInterviews,...referralInterviews].sort((a,b)=>String(a.starts_at).localeCompare(String(b.starts_at))) });
   }
   if (path === "/api/recruiter/interviews" && request.method === "POST") {
     const body = await request.json().catch(() => ({})),
-      platform = await getPlatformSettings(env),
+      platform = await getPlatformSettings(env);
+    if(body.referralId){
+      const referral=await env.DB.prepare("SELECT r.id,r.candidate_user_id,COALESCE(j.title,'profil transmis') title FROM candidate_referrals r LEFT JOIN job_offers j ON j.id=r.job_offer_id WHERE r.id=? AND r.recruiter_user_id=?").bind(clean(body.referralId,80),user.id).first();
+      if(!referral||!clean(body.startsAt,50)||!platform.interviews.types.includes(body.type))return bad("Informations d’entretien invalides.");
+      const id=crypto.randomUUID();
+      await env.DB.batch([
+        env.DB.prepare("INSERT INTO candidate_referral_interviews(id,referral_id,candidate_user_id,recruiter_user_id,starts_at,duration_minutes,interview_type,location,meeting_url) VALUES(?,?,?,?,?,?,?,?,?)").bind(id,referral.id,referral.candidate_user_id,user.id,body.startsAt,Number(body.duration)||platform.interviews.defaultDurations[body.type],body.type,clean(body.location,500)||null,clean(body.meetingUrl,500)||null),
+        env.DB.prepare("UPDATE candidate_referrals SET status='interview',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(referral.id),
+        env.DB.prepare("INSERT INTO candidate_referral_history(id,referral_id,status,actor_type,actor_id) VALUES(?,?,'interview','recruiter',?)").bind(crypto.randomUUID(),referral.id,user.id),
+        env.DB.prepare("INSERT INTO notifications(id,user_id,type,title,body,href) VALUES(?,?,?,?,?,?)").bind(crypto.randomUUID(),referral.candidate_user_id,"interview","Nouvel entretien",`Un entretien a été planifié pour ${referral.title}.`,"/demandeur/entretiens"),
+      ]);
+      await platformEvent(env,"INTERVIEW_CREATED","interviews",user.id,"candidate_referral_interview",id,{referralId:referral.id});
+      return json({interview:{id}},201);
+    }
+    const
       application = await env.DB.prepare(
-        "SELECT a.id,a.candidate_user_id,j.title FROM applications a JOIN job_offers j ON j.id=a.job_offer_id WHERE a.id=? AND j.recruiter_user_id=?",
+        "SELECT a.id,a.candidate_user_id,j.title FROM applications a JOIN candidate_referrals r ON r.application_id=a.id JOIN job_offers j ON j.id=a.job_offer_id WHERE a.id=? AND r.recruiter_user_id=?",
       )
         .bind(clean(body.applicationId, 80), user.id)
         .first();
@@ -2930,7 +2977,7 @@ async function platformSettingsApi(request, env, path) {
   const session = await requireAdmin(request, env);
   if (path === "/api/admin/platform-settings" && request.method === "GET")
     return json({ settings: await getPlatformSettings(env) });
-  const sectionMatch = path.match(/^\/api\/admin\/platform-settings\/(general|registrations|documents|jobs|applications|interviews|matching|chatbot|maintenance)$/);
+  const sectionMatch = path.match(/^\/api\/admin\/platform-settings\/(general|registrations|documents|jobs|applications|interviews|matching|chatbot|maintenance|recruiter_access)$/);
   if (sectionMatch && request.method === "PATCH") {
     const before = (await getPlatformSettings(env))[sectionMatch[1]], body = await request.json().catch(() => null);
     let value;
@@ -3069,10 +3116,10 @@ async function adminDashboard(request, env) {
 
   const [totals, today] = await Promise.all([
     env.DB.prepare(
-      "SELECT (SELECT COUNT(*) FROM users WHERE role='candidate') candidates,(SELECT COUNT(*) FROM users WHERE role='recruiter') recruiters,(SELECT COUNT(*) FROM companies) companies,(SELECT COUNT(*) FROM job_offers WHERE status='published') active_jobs,(SELECT COUNT(*) FROM applications) applications,(SELECT COUNT(*) FROM interviews) interviews",
+      "SELECT (SELECT COUNT(*) FROM users WHERE role='candidate') candidates,(SELECT COUNT(*) FROM users WHERE role='recruiter') recruiters,(SELECT COUNT(*) FROM companies) companies,(SELECT COUNT(*) FROM job_offers WHERE status='published') active_jobs,(SELECT COUNT(*) FROM applications) applications,(SELECT COUNT(*) FROM candidate_referrals) referrals,(SELECT COUNT(*) FROM interviews)+(SELECT COUNT(*) FROM candidate_referral_interviews) interviews",
     ).first(),
     env.DB.prepare(
-      "SELECT (SELECT COUNT(*) FROM users WHERE date(created_at)=date('now')) registrations,(SELECT COUNT(*) FROM applications WHERE date(created_at)=date('now')) applications,(SELECT COUNT(*) FROM job_offers WHERE status='published' AND date(published_at)=date('now')) jobs_published,(SELECT COUNT(*) FROM interviews WHERE date(created_at)=date('now')) interviews_created,(SELECT COUNT(*) FROM platform_events WHERE event_type='SYSTEM_ERROR' AND date(created_at)=date('now')) errors",
+      "SELECT (SELECT COUNT(*) FROM users WHERE date(created_at)=date('now')) registrations,(SELECT COUNT(*) FROM applications WHERE date(created_at)=date('now')) applications,(SELECT COUNT(*) FROM candidate_referrals WHERE date(sent_at)=date('now')) referrals,(SELECT COUNT(*) FROM job_offers WHERE status='published' AND date(published_at)=date('now')) jobs_published,(SELECT COUNT(*) FROM interviews WHERE date(created_at)=date('now'))+(SELECT COUNT(*) FROM candidate_referral_interviews WHERE date(created_at)=date('now')) interviews_created,(SELECT COUNT(*) FROM platform_events WHERE event_type='SYSTEM_ERROR' AND date(created_at)=date('now')) errors",
     ).first(),
   ]);
 
@@ -3769,6 +3816,73 @@ async function adminBusiness(request, env, path) {
   if (request.method === "GET" && id)
     return adminBusinessDetail(request, env, resource, id);
   return adminBusinessMutation(request, env, resource, id, action);
+}
+async function adminReferrals(request, env, path) {
+  const session = await requireAdmin(request, env), url = new URL(request.url);
+  if (path === "/api/admin/referrals/options" && request.method === "GET") {
+    const candidateIds = (url.searchParams.get("candidateIds") || "").split(",").map(x=>clean(x,80)).filter(Boolean);
+    const recruiterId = clean(url.searchParams.get("recruiterId"),80);
+    const { results: recruiters=[] } = await env.DB.prepare("SELECT u.id,u.email,rp.first_name,rp.last_name,COALESCE(c.name,rp.company_name) company_name FROM users u JOIN recruiter_profiles rp ON rp.user_id=u.id LEFT JOIN companies c ON c.owner_user_id=u.id WHERE u.role='recruiter' AND u.account_status='active' ORDER BY rp.last_name,rp.first_name").all();
+    const jobs = recruiterId ? (await env.DB.prepare("SELECT id,title,status FROM job_offers WHERE recruiter_user_id=? AND status IN ('draft','published') ORDER BY created_at DESC").bind(recruiterId).all()).results || [] : [];
+    let candidates=[];
+    if(candidateIds.length) candidates=(await env.DB.prepare(`SELECT cp.user_id,cp.first_name,cp.last_name,cp.professional_title,cp.city FROM candidate_profiles cp WHERE cp.user_id IN (${candidateIds.map(()=>"?").join(",")})`).bind(...candidateIds).all()).results||[];
+    let documents=[];
+    if(candidateIds.length) documents=(await env.DB.prepare(`SELECT id,user_id,kind,original_name,size_bytes,is_default FROM documents WHERE deleted_at IS NULL AND user_id IN (${candidateIds.map(()=>"?").join(",")}) ORDER BY is_default DESC,created_at DESC`).bind(...candidateIds).all()).results||[];
+    return json({recruiters,jobs,candidates,documents});
+  }
+  if (path === "/api/admin/referrals" && request.method === "POST") {
+    assertAdminOrigin(request,env);
+    const body=await request.json().catch(()=>({})), candidateIds=[...new Set(list(body.candidateIds).map(x=>clean(x,80)).filter(Boolean))], recruiterId=clean(body.recruiterId,80), jobId=clean(body.jobId,80)||null, applicationId=clean(body.applicationId,80)||null, message=clean(body.message,2000)||null;
+    if(!candidateIds.length||!recruiterId)return bad("Candidat et recruteur obligatoires.");
+    if(applicationId&&candidateIds.length!==1)return bad("Une candidature ne peut être liée qu’à un seul candidat.");
+    if(applicationId&&!await env.DB.prepare("SELECT id FROM applications WHERE id=? AND candidate_user_id=? AND (? IS NULL OR job_offer_id=?)").bind(applicationId,candidateIds[0],jobId,jobId).first())return bad("La candidature ne correspond pas au candidat ou à l’offre.",409);
+    const recruiter=await env.DB.prepare("SELECT u.id,u.email,pref.preferred_language,COALESCE(c.id,(SELECT id FROM companies WHERE owner_user_id=u.id LIMIT 1)) company_id FROM users u LEFT JOIN recruiter_preferences pref ON pref.user_id=u.id LEFT JOIN companies c ON c.owner_user_id=u.id WHERE u.id=? AND u.role='recruiter' AND u.account_status='active'").bind(recruiterId).first();
+    if(!recruiter)return bad("Recruteur introuvable.",404);
+    if(jobId&&!await env.DB.prepare("SELECT id FROM job_offers WHERE id=? AND recruiter_user_id=?").bind(jobId,recruiterId).first())return bad("L’offre n’appartient pas au recruteur.",403);
+    const duplicates=[];
+    for(const candidateId of candidateIds){const existing=await env.DB.prepare("SELECT id,sent_at FROM candidate_referrals WHERE candidate_user_id=? AND recruiter_user_id=? AND COALESCE(job_offer_id,'')=COALESCE(?,'') ORDER BY sent_at DESC LIMIT 1").bind(candidateId,recruiterId,jobId).first();if(existing)duplicates.push({candidateId,...existing});}
+    if(duplicates.length&&!body.force)return json({code:"REFERRAL_DUPLICATE",userMessage:"Un ou plusieurs profils ont déjà été transmis à ce recruteur.",duplicates},409);
+    const created=[];
+    for(const candidateId of candidateIds){
+      if(!await env.DB.prepare("SELECT user_id FROM candidate_profiles WHERE user_id=?").bind(candidateId).first())continue;
+      const id=crypto.randomUUID(), requestedDocs=Array.isArray(body.documentIdsByCandidate?.[candidateId])?body.documentIdsByCandidate[candidateId]:[];
+      const validDocs=requestedDocs.length?(await env.DB.prepare(`SELECT id FROM documents WHERE user_id=? AND deleted_at IS NULL AND id IN (${requestedDocs.map(()=>"?").join(",")})`).bind(candidateId,...requestedDocs).all()).results||[]:[];
+      await env.DB.batch([
+        env.DB.prepare("INSERT INTO candidate_referrals(id,candidate_user_id,recruiter_user_id,company_id,job_offer_id,application_id,sent_by_admin_session_id,admin_message) VALUES(?,?,?,?,?,?,?,?)").bind(id,candidateId,recruiterId,recruiter.company_id||null,jobId,body.force?null:applicationId,session.id,message),
+        env.DB.prepare("INSERT INTO candidate_referral_history(id,referral_id,status,actor_type,actor_id) VALUES(?,?,'transmitted','admin',?)").bind(crypto.randomUUID(),id,session.id),
+        env.DB.prepare("INSERT INTO notifications(id,user_id,type,title,body,href) VALUES(?,?,?,?,?,?)").bind(crypto.randomUUID(),recruiterId,"candidate_referral","Nouveau profil reçu","Un profil candidat vous a été transmis par Workcrute.",`/recruteur/candidats/profil/?id=${id}`),
+        ...validDocs.map(d=>env.DB.prepare("INSERT INTO candidate_referral_documents(referral_id,document_id) VALUES(?,?)").bind(id,d.id)),
+      ]);
+      await adminAudit(env,session.id,"candidate_referral_created","candidate_referral",id,null,{candidateId,recruiterId,jobId,documentIds:validDocs.map(d=>d.id)});
+      const prefs=await env.DB.prepare("SELECT email_enabled,preferred_language FROM recruiter_preferences WHERE user_id=?").bind(recruiterId).first();
+      if(prefs?.email_enabled!==0) await enqueueRecruiterReferralEmail(env,id,recruiter.email,prefs?.preferred_language||"fr");
+      await platformEvent(env,"CANDIDATE_REFERRAL_CREATED","recruiters",null,"candidate_referral",id,{candidateId,recruiterId,jobId});
+      created.push(id);
+    }
+    return json({ok:true,created},201);
+  }
+  if (path === "/api/admin/referrals" && request.method === "GET") {
+    const {results=[]}=await env.DB.prepare("SELECT r.id,r.status,r.sent_at,r.viewed_at,r.admin_message,cp.first_name,cp.last_name,cp.professional_title,rp.first_name recruiter_first_name,rp.last_name recruiter_last_name,COALESCE(c.name,rp.company_name) company_name,j.title job_title FROM candidate_referrals r JOIN candidate_profiles cp ON cp.user_id=r.candidate_user_id JOIN recruiter_profiles rp ON rp.user_id=r.recruiter_user_id LEFT JOIN companies c ON c.id=r.company_id LEFT JOIN job_offers j ON j.id=r.job_offer_id ORDER BY r.sent_at DESC LIMIT 200").all();
+    return json({items:results});
+  }
+  if(path === "/api/admin/referrals/matching" && request.method === "GET"){
+    const jobId=clean(url.searchParams.get("jobId"),80),job=await env.DB.prepare("SELECT * FROM job_offers WHERE id=?").bind(jobId).first();
+    if(!job)return bad("Offre introuvable.",404);
+    const platform=await getPlatformSettings(env);
+    if(!platform.matching.enabled)return json({items:[],enabled:false});
+    const {results:candidates=[]}=await env.DB.prepare("SELECT cp.*,a.questionnaire_evaluation_json FROM candidate_profiles cp LEFT JOIN applications a ON a.candidate_user_id=cp.user_id AND a.job_offer_id=? WHERE cp.profile_visible=1 AND NOT EXISTS(SELECT 1 FROM candidate_referrals r WHERE r.candidate_user_id=cp.user_id AND r.job_offer_id=?) GROUP BY cp.user_id ORDER BY cp.updated_at DESC LIMIT 200").bind(jobId,jobId).all();
+    const items=candidates.map(candidate=>({...candidate,matching:matching(job,candidate,platform.matching)})).filter(x=>x.matching.score!==null).sort((a,b)=>b.matching.score-a.matching.score);
+    return json({items,enabled:true,threshold:platform.matching.recommendedThreshold});
+  }
+  const id=path.split("/").filter(Boolean)[3];
+  if(id&&request.method==="GET"){
+    const item=await env.DB.prepare("SELECT r.*,cp.*,u.email candidate_email,rp.first_name recruiter_first_name,rp.last_name recruiter_last_name,ru.email recruiter_email,COALESCE(c.name,rp.company_name) company_name,j.title job_title FROM candidate_referrals r JOIN candidate_profiles cp ON cp.user_id=r.candidate_user_id JOIN users u ON u.id=r.candidate_user_id JOIN recruiter_profiles rp ON rp.user_id=r.recruiter_user_id JOIN users ru ON ru.id=r.recruiter_user_id LEFT JOIN companies c ON c.id=r.company_id LEFT JOIN job_offers j ON j.id=r.job_offer_id WHERE r.id=?").bind(id).first();
+    if(!item)return bad("Transmission introuvable.",404);
+    const {results:documents=[]}=await env.DB.prepare("SELECT d.id,d.kind,d.original_name,d.size_bytes FROM documents d JOIN candidate_referral_documents rd ON rd.document_id=d.id WHERE rd.referral_id=?").bind(id).all();
+    const {results:history=[]}=await env.DB.prepare("SELECT status,actor_type,created_at FROM candidate_referral_history WHERE referral_id=? ORDER BY created_at").bind(id).all();
+    return json({item,documents,history});
+  }
+  return bad("Action non prise en charge.",405);
 }
 const faqCategories = new Set([
   "account",
@@ -4986,6 +5100,8 @@ export default {
         response = await adminStats(request, env);
       else if (path === "/api/admin/dashboard" && request.method === "GET")
         response = await adminDashboard(request, env);
+      else if (path === "/api/admin/referrals" || path.startsWith("/api/admin/referrals/"))
+        response = await adminReferrals(request, env, path);
       else if (
         path === "/api/admin/business" ||
         path.startsWith("/api/admin/business/")
@@ -5067,6 +5183,7 @@ export default {
   },
   async scheduled(_controller, env, ctx) {
     ctx.waitUntil(processAdminEmailOutbox(env, 25));
+    ctx.waitUntil(processRecruiterReferralEmails(env, 25));
     ctx.waitUntil(env.DB.prepare("UPDATE job_offers SET status='closed',updated_at=CURRENT_TIMESTAMP WHERE status='published' AND deadline_at IS NOT NULL AND deadline_at<CURRENT_TIMESTAMP").run());
   },
 };

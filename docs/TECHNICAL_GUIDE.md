@@ -76,7 +76,7 @@ Le cookie admin est `HttpOnly`, `Secure`, `SameSite=Strict`. La session possède
 ## Rôles et permissions
 
 - `candidate` : profil propre, documents propres, offres publiées, favoris, alertes, candidatures, entretiens et préférences.
-- `recruiter` : entreprise associée, offres propres, questionnaires autorisés, candidatures reçues, candidats visibles, notes internes et entretiens.
+- `recruiter` : entreprise associée, offres propres, questionnaires autorisés et profils explicitement transmis par un administrateur. L’accès aux candidats et documents est contrôlé serveur par `candidate_referrals` et `candidate_referral_documents` ; un identifiant non transmis retourne HTTP 403.
 - administrateur : session séparée, routes `/api/admin/*`, gestion globale et audit.
 
 Les contrôles de rôle sont appliqués côté serveur. Masquer un bouton dans le frontend ne constitue jamais une permission.
@@ -114,6 +114,8 @@ Une composante n’entre dans le calcul que lorsque l’offre et le candidat pos
 ## Administration
 
 Le Control Center comprend : tableau de bord, activité, notifications, candidats, recruteurs, entreprises, offres, candidatures, entretiens, questionnaires, chatbot/FAQ, erreurs, paramètres et sécurité.
+
+Le module **Transmissions** assure l’intermédiation Workcrute : sélection multiple de candidats, recruteur destinataire, offre facultative, liste blanche de documents, message, détection des doublons, historique, notifications et file email avec retry. Les candidatures directes ne rejoignent le pipeline recruteur qu’après une transmission admin. Le paramètre `recruiter_access.globalCandidateDatabaseEnabled` est créé à `false` pour préparer une éventuelle évolution contrôlée.
 
 Le flux d’activité repose sur le journal `platform_events` et une lecture incrémentale toutes les 20 secondes. Les modifications sensibles enregistrent l’administrateur, la ressource, la valeur avant et la valeur après.
 

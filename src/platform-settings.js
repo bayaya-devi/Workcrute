@@ -17,6 +17,7 @@ export const PLATFORM_DEFAULTS = Object.freeze({
   matching: { enabled: true, weights: { skills: 25, experience: 15, education: 10, location: 10, contract: 10, availability: 10, questionnaire: 20 }, recommendedThreshold: 70 },
   chatbot: { enabled: true, welcome: { fr: "Bonjour, comment puis-je vous aider ?", en: "Hello, how can I help you?", ar: "مرحباً، كيف يمكنني مساعدتك؟" }, similarityThreshold: 0.43, supportContact: "" },
   maintenance: { enabled: false, message: { fr: "Workcrute est temporairement en maintenance.", en: "Workcrute is temporarily under maintenance.", ar: "Workcrute قيد الصيانة مؤقتاً." } },
+  recruiter_access: { globalCandidateDatabaseEnabled: false },
 });
 
 const text = (value, max = 160) => typeof value === "string" && value.trim().length <= max ? value.trim() : "";
@@ -75,6 +76,7 @@ export function validatePlatformSection(section, input) {
     if (!message) throw new Error("INVALID_SETTINGS");
     return { enabled: bool(input.enabled), message };
   }
+  if (section === "recruiter_access") return { globalCandidateDatabaseEnabled: bool(input.globalCandidateDatabaseEnabled) };
   throw new Error("UNKNOWN_SETTINGS_SECTION");
 }
 

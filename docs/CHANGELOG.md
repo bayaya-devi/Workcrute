@@ -1,5 +1,15 @@
 # Changelog Workcrute
 
+## Intermédiation candidats — 2026-08-14
+
+- Suppression de l’accès recruteur à la base globale des candidats par défaut.
+- Ajout des transmissions administrateur, sélection multiple, offre facultative, documents autorisés et message.
+- Contrôles d’autorisation serveur, refus 403 des profils et documents non transmis.
+- Ajout de **Profils reçus**, statuts dédiés, historique, notes internes et entretiens.
+- Candidatures directes conservées côté admin jusqu’à transmission explicite.
+- Notifications recruteur et emails en file avec reprise automatique.
+- KPIs admin/recruteur, audit, détection des doublons et renvoi forcé explicite.
+
 ## 2026-08 — Livraison de la plateforme complète
 
 ### Public

@@ -1,0 +1,34 @@
+import {spawn,spawnSync} from "node:child_process";
+import {randomBytes} from "node:crypto";
+import {fileURLToPath} from "node:url";
+const secret1=`A1!${randomBytes(18).toString("base64url")}`,secret2=`B2!${randomBytes(18).toString("base64url")}`,pepper=randomBytes(32).toString("hex"),suffix=randomBytes(6).toString("hex"),password="Referral!Test2026",port=8801,base=`http://127.0.0.1:${port}`;
+const wrangler=fileURLToPath(new URL("../node_modules/wrangler/bin/wrangler.js",import.meta.url)),projectDir=fileURLToPath(new URL("..",import.meta.url));
+spawnSync(process.execPath,[wrangler,"d1","execute","workcrute","--local","--command","DELETE FROM admin_sessions; DELETE FROM admin_auth_challenges; DELETE FROM admin_rate_limits; UPDATE admin_security_config SET secret_1_hash=NULL,secret_1_salt=NULL,secret_2_hash=NULL,secret_2_salt=NULL WHERE id=1"],{cwd:projectDir,stdio:"ignore"});
+const server=spawn(process.execPath,[wrangler,"dev","--local","--port",String(port),"--var",`ADMIN_AUTH_SECRET_1:${secret1}`,"--var",`ADMIN_AUTH_SECRET_2:${secret2}`,"--var",`SESSION_PEPPER:${pepper}`,"--var","ENVIRONMENT:test"],{cwd:projectDir,env:process.env,stdio:"ignore"});
+const jars={admin:new Map(),candidate:new Map(),recruiter:new Map(),other:new Map()};
+const check=(ok,label)=>{if(!ok)throw new Error(`Échec: ${label}`);process.stdout.write(`✓ ${label}\n`);};
+async function req(path,{method="GET",body,jar=jars.admin}={}){const response=await fetch(base+path,{method,headers:{...(body===undefined?{}:{"content-type":"application/json"}),cookie:[...jar].map(([k,v])=>`${k}=${v}`).join("; ")},body:body===undefined?undefined:JSON.stringify(body)});const set=response.headers.get("set-cookie")||"";for(const m of set.matchAll(/(wc_(?:admin_(?:session|challenge)|session))=([^;,]*)/g))m[2]?jar.set(m[1],m[2]):jar.delete(m[1]);return{response,data:await response.json().catch(()=>({}))};}
+async function ready(){for(let i=0;i<150;i++){try{if((await fetch(`${base}/admin/connexion/`)).ok)return;}catch{}await new Promise(r=>setTimeout(r,200));}throw new Error("Serveur indisponible");}
+async function adminRecruiter(label,jar){let r=await req("/api/admin/business/recruiters",{method:"POST",body:{firstName:label,lastName:"Referral",email:`${label.toLowerCase()}-${suffix}@example.com`,phone:label==="Primary"?"+212612345671":"+212612345672",password,companyName:`${label} Corp`,jobTitle:"RH",sector:"Tech",city:"Rabat"}});check(r.response.status===201,`création recruteur ${label}`);const id=r.data.id;r=await req("/api/auth/login",{method:"POST",jar,body:{email:`${label.toLowerCase()}-${suffix}@example.com`,password}});check(r.response.ok,`connexion recruteur ${label}`);return id;}
+try{await ready();let r=await req("/api/admin/auth/step-1",{method:"POST",body:{secret:secret1}});check(r.response.ok,"auth admin niveau 1");r=await req("/api/admin/auth/step-2",{method:"POST",body:{secret:secret2}});check(r.response.ok,"auth admin niveau 2");
+ const recruiterId=await adminRecruiter("Primary",jars.recruiter),otherId=await adminRecruiter("Other",jars.other);
+ r=await req("/api/recruiter/jobs",{method:"POST",jar:jars.recruiter,body:{title:`Referral job ${suffix}`,domain:"Tech",description:"Offre de test transmission",contractType:"CDI",city:"Rabat",workMode:"hybrid",status:"published",companyName:"Primary Corp"}});check(r.response.status===201,"création offre");const jobId=r.data.job.id;
+ r=await req("/api/auth/register",{method:"POST",jar:jars.candidate,body:{role:"candidate",email:`candidate-ref-${suffix}@example.com`,firstName:"Candidate",lastName:"Referral",phone:"+212612345679",password,confirmPassword:password,acceptedTerms:true,language:"fr"}});check(r.response.status===201,"création candidat");const candidateId=r.data.user.id;
+ r=await req("/api/applications",{method:"POST",jar:jars.candidate,body:{jobId,coverLetter:"Candidature directe"}});check(r.response.status===201,"candidature directe créée");const applicationId=r.data.application.id;
+ r=await req("/api/recruiter/candidates",{jar:jars.recruiter});check(r.response.ok&&!r.data.items.some(x=>x.user_id===candidateId),"candidature invisible avant transmission admin");
+ r=await req("/api/recruiter/applications",{jar:jars.recruiter});check(r.response.ok&&!r.data.items.some(x=>x.id===applicationId),"candidature absente du pipeline avant transmission");
+ r=await req("/api/admin/referrals",{method:"POST",body:{candidateIds:[candidateId],recruiterId,jobId,applicationId,message:"Profil validé par Workcrute",documentIdsByCandidate:{[candidateId]:[]}}});check(r.response.status===201,"transmission admin");const referralId=r.data.created[0];
+ r=await req("/api/recruiter/candidates",{jar:jars.recruiter});check(r.data.items.some(x=>x.referral_id===referralId),"profil reçu visible au bon recruteur");
+ r=await req("/api/recruiter/applications",{jar:jars.recruiter});check(r.data.items.some(x=>x.id===applicationId),"candidature ajoutée au pipeline après transmission");
+ r=await req(`/api/recruiter/candidates/${referralId}`,{jar:jars.other});check(r.response.status===403,"profil refusé à un autre recruteur");
+ r=await req(`/api/recruiter/candidates/${candidateId}`,{jar:jars.recruiter});check(r.response.status===403,"manipulation ID candidat refusée");
+ r=await req(`/api/recruiter/candidates/${referralId}`,{jar:jars.recruiter});check(r.response.ok&&r.data.candidate.referral_status==="viewed","consultation et statut viewed");
+ r=await req(`/api/recruiter/candidates/${referralId}`,{method:"PATCH",jar:jars.recruiter,body:{status:"shortlisted"}});check(r.response.ok,"mise à jour statut transmission");
+ r=await req(`/api/recruiter/candidates/${referralId}/notes`,{method:"POST",jar:jars.recruiter,body:{content:"Note strictement interne"}});check(r.response.status===201,"note interne recruteur");
+ r=await req("/api/recruiter/interviews",{method:"POST",jar:jars.recruiter,body:{referralId,startsAt:"2026-10-15T10:00:00Z",type:"video",duration:45,meetingUrl:"https://meet.example.test/referral"}});check(r.response.status===201,"entretien depuis profil transmis");
+ r=await req("/api/admin/referrals",{method:"POST",body:{candidateIds:[candidateId],recruiterId,jobId}});check(r.response.status===409&&r.data.code==="REFERRAL_DUPLICATE","doublon signalé");
+ r=await req("/api/admin/referrals",{method:"POST",body:{candidateIds:[candidateId],recruiterId,jobId,force:true}});check(r.response.status===201,"renvoi forcé explicite");
+ r=await req("/api/admin/referrals");check(r.response.ok&&r.data.items.some(x=>x.id===referralId),"historique admin disponible");
+ r=await req("/api/admin/audit");check(r.data.items.some(x=>x.resource_id===referralId),"transmission auditée");
+ process.stdout.write("Candidate referral integration: OK\n");
+}finally{if(process.platform==="win32")spawnSync("taskkill",["/pid",String(server.pid),"/T","/F"],{stdio:"ignore"});else server.kill("SIGTERM");}

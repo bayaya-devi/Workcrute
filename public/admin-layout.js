@@ -1,6 +1,7 @@
 (() => {
   const page = document.body.dataset.adminPage || "dashboard";
   const links = [
+    ["referrals", "/admin/transmissions/", "referrals", "⇢"],
     ["dashboard", "/admin/tableau-de-bord/", "dashboard", "⌂"],
     ["activity", "/admin/journal-activite/", "activity", "↻"],
     ["candidates", "/admin/demandeurs/", "candidates", "♙"],
@@ -20,7 +21,7 @@
   const nav = links
     .map(
       ([id, href, key, icon], index) =>
-        `${index === 2 || index === 9 ? `<p class="adm-nav-label">${index === 2 ? "Plateforme" : "Administration"}</p>` : ""}<a href="${href}" ${page === id ? 'aria-current="page"' : ""}><span aria-hidden="true">${icon}</span><span data-adm-i18n="${key}">${key}</span></a>`,
+        `${index === 3 || index === 10 ? `<p class="adm-nav-label">${index === 3 ? "Plateforme" : "Administration"}</p>` : ""}<a href="${href}" ${page === id ? 'aria-current="page"' : ""}><span aria-hidden="true">${icon}</span><span data-adm-i18n="${key}">${key}</span></a>`,
     )
     .join("");
   const shell = document.createElement("div");

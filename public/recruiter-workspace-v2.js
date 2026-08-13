@@ -172,7 +172,7 @@
           )
           .join(
             "",
-          )}</section><div class="rec-grid rec-cols" style="margin-top:18px"><section class="rec-card"><div class="rec-card-head"><h2>${t("recentApplications")}</h2><a href="${href(routes.applications)}">${t("viewAll")}</a></div>${d.recentApplications.length ? d.recentApplications.map((a) => `<div class="rec-row"><div><h3><a href="${href(routes.applications + `/detail/?id=${a.id}`)}">${esc(a.first_name)} ${esc(a.last_name)}</a></h3><div class="rec-meta"><span>${esc(a.title)}</span><span>${date(a.created_at)}</span></div></div>${pill(a.status)}</div>`).join("") : empty(t("noApplications"), t("noApplicationsHelp"))}</section><aside class="rec-card"><div class="rec-card-head"><h2>${t("performance")}</h2><a href="${href(routes.jobs)}">${t("viewAll")}</a></div>${d.performance.length ? d.performance.map((j) => `<div class="rec-row"><div><h3>${esc(j.title)}</h3><div class="rec-meta"><span>${j.applications} ${t("applicationsCount")}</span><span>${j.shortlisted || 0} ${t("shortlisted")}</span></div></div>${pill(j.status)}</div>`).join("") : empty(t("noJobs"), t("noJobsHelp"))}</aside></div><section class="rec-card" style="margin-top:18px"><div class="rec-card-head"><h2>${t("recommended")}</h2><span class="rec-pill">${t("matchingUnavailable")}</span></div>${empty(t("noRecommendations"), t("noRecommendationsHelp"), `<a class="rec-button secondary" href="${href(routes.candidates)}">${t("searchCandidates")}</a>`)}</section>`;
+          )}</section><div class="rec-grid rec-cols" style="margin-top:18px"><section class="rec-card"><div class="rec-card-head"><h2>${t("recentApplications")}</h2><a href="${href(routes.candidates)}">${t("viewAll")}</a></div>${d.recentApplications.length ? d.recentApplications.map((a) => `<div class="rec-row"><div><h3><a href="${href(routes.candidates + `/profil/?id=${a.id}`)}">${esc(a.first_name)} ${esc(a.last_name)}</a></h3><div class="rec-meta"><span>${esc(a.title)}</span><span>${date(a.created_at)}</span></div></div>${pill(a.status)}</div>`).join("") : empty(t("noApplications"), t("noApplicationsHelp"))}</section><aside class="rec-card"><div class="rec-card-head"><h2>${t("performance")}</h2><a href="${href(routes.jobs)}">${t("viewAll")}</a></div>${d.performance.length ? d.performance.map((j) => `<div class="rec-row"><div><h3>${esc(j.title)}</h3><div class="rec-meta"><span>${j.applications} ${t("applicationsCount")}</span><span>${j.shortlisted || 0} ${t("shortlisted")}</span></div></div>${pill(j.status)}</div>`).join("") : empty(t("noJobs"), t("noJobsHelp"))}</aside></div><section class="rec-card" style="margin-top:18px"><div class="rec-card-head"><h2>${t("recommended")}</h2><span class="rec-pill">${t("matchingUnavailable")}</span></div>${empty(t("noRecommendations"), t("noRecommendationsHelp"), `<a class="rec-button secondary" href="${href(routes.candidates)}">${t("candidates")}</a>`)}</section>`;
     } catch (e) {
       console.error(e);
       main().innerHTML = head(t("dashboard")) + errorState();
@@ -618,44 +618,21 @@
       (location.href = href(routes.interviews + `/?applicationId=${id}`));
   }
   async function candidates() {
-    main().innerHTML =
-      head(t("searchCandidates"), t("noCandidatesHelp")) +
-      `<form class="rec-toolbar" data-search><input class="rec-input" name="q" placeholder="${t("keyword")}"><input class="rec-input" name="city" placeholder="${t("city")}"><button class="rec-button primary">${t("search")}</button></form><div class="rec-grid rec-cards" data-candidates></div>`;
+    main().innerHTML = head(t("candidates"), t("noCandidatesHelp")) + `<form class="rec-toolbar" data-search><input class="rec-input" name="q" placeholder="${t("keyword")}"><input class="rec-input" name="city" placeholder="${t("city")}"><button class="rec-button primary">${t("search")}</button></form><div class="rec-grid rec-cards" data-candidates></div>`;
     const load = async (form) => {
-      const q = form ? "?" + new URLSearchParams(new FormData(form)) : "",
-        d = await api("/api/recruiter/candidates" + q),
-        h = document.querySelector("[data-candidates]");
-      h.innerHTML = d.items.length
-        ? d.items
-            .map(
-              (c) =>
-                `<article class="rec-card"><div class="rec-card-head"><div class="rec-avatar">${esc(c.first_name?.[0] || "?")}</div><span class="rec-pill">${t("matchingUnavailable")}</span></div><h2>${esc(c.first_name)} ${esc(c.last_name)}</h2><p>${esc(c.professional_title || t("empty"))}</p><div class="rec-meta"><span>${esc(c.city || "")}</span><span>${esc(c.availability || "")}</span></div><a class="rec-button primary" style="margin-top:16px" href="${href(routes.candidates + `/profil/?id=${c.user_id}`)}">${t("viewAll")}</a></article>`,
-            )
-            .join("")
-        : empty(t("noCandidates"), t("noCandidatesHelp"));
+      const q = form ? "?" + new URLSearchParams(new FormData(form)) : "", d = await api("/api/recruiter/candidates" + q), h = document.querySelector("[data-candidates]");
+      h.innerHTML = d.items.length ? d.items.map((c) => `<article class="rec-card"><div class="rec-card-head"><div class="rec-avatar">${esc(c.first_name?.[0] || "?")}</div>${pill(c.status)}</div><h2>${esc(c.first_name)} ${esc(c.last_name)}</h2><p>${esc(c.professional_title || t("empty"))}</p><div class="rec-meta"><span>${esc(c.city || "")}</span><span>${esc(c.job_title || "")}</span><span>${date(c.sent_at)}</span></div><a class="rec-button primary" style="margin-top:16px" href="${href(routes.candidates + `/profil/?id=${c.referral_id}`)}">${t("viewAll")}</a></article>`).join("") : empty(t("noCandidates"), t("noCandidatesHelp"));
     };
-    const f = document.querySelector("[data-search]");
-    f.onsubmit = (e) => {
-      e.preventDefault();
-      load(f);
-    };
-    load();
+    const f = document.querySelector("[data-search]"); f.onsubmit = (e) => { e.preventDefault(); load(f); }; load();
   }
   async function candidateProfile() {
-    const id = new URLSearchParams(location.search).get("id"),
-      d = await api(`/api/recruiter/candidates/${id}`),
-      c = d.candidate;
-    main().innerHTML =
-      head(
-        t("candidateProfile"),
-        `${esc(c.professional_title || "")} · ${esc(c.city || "")}`,
-        `<a class="rec-button secondary" href="${href(routes.candidates)}">${t("candidates")}</a>`,
-      ) +
-      `<div class="rec-grid rec-cols"><article class="rec-card"><div class="rec-card-head"><h2>${esc(c.first_name)} ${esc(c.last_name)}</h2><a class="rec-button secondary" href="mailto:${esc(c.email)}">${t("contact")}</a></div><div class="rec-detail"><div><dt>${t("city")}</dt><dd>${esc(c.city || t("empty"))}</dd></div><div><dt>${t("availability")}</dt><dd>${esc(c.availability || t("empty"))}</dd></div></div><h3>${t("summary")}</h3><p>${esc(c.introduction || t("empty"))}</p><h3>${t("skills")}</h3><div class="rec-actions">${
-        parse(c.skills_json, [])
-          .map((x) => `<span class="rec-pill">${esc(x)}</span>`)
-          .join("") || t("empty")
-      }</div><h3>${t("experience")}</h3><p>${parse(c.experience_json, []).map(esc).join(" · ") || t("empty")}</p><h3>${t("education")}</h3><p>${parse(c.education_json, []).map(esc).join(" · ") || t("empty")}</p><h3>${t("languages")}</h3><p>${parse(c.languages_json, []).map(esc).join(" · ") || t("empty")}</p></article><aside class="rec-grid"><section class="rec-card"><h2>${t("matching")}</h2>${scoreBlock(d.matching)}</section><section class="rec-card"><h2>${t("documents")}</h2>${d.documents.map((doc) => `<div class="rec-row"><strong>${esc(doc.original_name)}</strong><span>${esc(doc.kind)}</span></div>`).join("") || t("empty")}</section></aside></div>`;
+    const id = new URLSearchParams(location.search).get("id"), d = await api(`/api/recruiter/candidates/${id}`), c = d.candidate;
+    main().innerHTML = head(t("candidateProfile"), `${esc(c.professional_title || "")} · ${esc(c.city || "")}`, `<a class="rec-button secondary" href="${href(routes.candidates)}">${t("candidates")}</a>`) +
+      `<div class="rec-grid rec-cols"><article class="rec-card"><div class="rec-card-head"><h2>${esc(c.first_name)} ${esc(c.last_name)}</h2><a class="rec-button secondary" href="mailto:${esc(c.email)}">${t("contact")}</a></div><div class="rec-detail"><div><dt>${t("city")}</dt><dd>${esc(c.city || t("empty"))}</dd></div><div><dt>${t("availability")}</dt><dd>${esc(c.availability || t("empty"))}</dd></div></div><h3>${t("summary")}</h3><p>${esc(c.introduction || t("empty"))}</p><h3>${t("skills")}</h3><div class="rec-actions">${parse(c.skills_json, []).map((x) => `<span class="rec-pill">${esc(x)}</span>`).join("") || t("empty")}</div><h3>${t("experience")}</h3><p>${parse(c.experience_json, []).map(esc).join(" · ") || t("empty")}</p><h3>${t("education")}</h3><p>${parse(c.education_json, []).map(esc).join(" · ") || t("empty")}</p><h3>${t("languages")}</h3><p>${parse(c.languages_json, []).map(esc).join(" · ") || t("empty")}</p></article><aside class="rec-grid"><section class="rec-card"><h2>${t("status")}</h2><select class="rec-select" data-referral-status>${["viewed","shortlisted","interview","accepted","rejected"].map(x=>`<option value="${x}" ${c.referral_status===x?"selected":""}>${t(x)}</option>`).join("")}</select><p>${esc(c.admin_message||"")}</p></section><section class="rec-card"><h2>${t("matching")}</h2>${scoreBlock(d.matching)}</section><section class="rec-card"><h2>${t("documents")}</h2>${d.documents.map((doc) => `<div class="rec-row"><strong>${esc(doc.original_name)}</strong><a class="rec-button secondary" href="/api/recruiter/documents/${doc.id}/download">${t("download")}</a></div>`).join("") || t("empty")}</section><section class="rec-card"><h2>${t("internalNotes")}</h2><form data-referral-note><textarea class="rec-input" name="content" maxlength="2000" required></textarea><button class="rec-button primary">${t("save")}</button></form>${(d.notes||[]).map(n=>`<p>${esc(n.content)}</p>`).join("")}</section></aside></div>`;
+    document.querySelector(".rec-cols aside").insertAdjacentHTML("beforeend",`<section class="rec-card"><h2>${t("createInterview")}</h2><form data-referral-interview class="rec-form"><div class="rec-field"><label>${t("startAt")}</label><input class="rec-input" type="datetime-local" name="startsAt" required></div><div class="rec-field"><label>${t("type")}</label><select class="rec-select" name="type"><option value="onsite">${t("onsite")}</option><option value="phone">${t("phone")}</option><option value="video">${t("video")}</option></select></div><div class="rec-field"><label>${t("duration")}</label><input class="rec-input" type="number" name="duration" value="45" min="15"></div><div class="rec-field"><label>${t("addressOrLink")}</label><input class="rec-input" name="location"></div><button class="rec-button primary">${t("save")}</button></form></section>`);
+    document.querySelector("[data-referral-status]").onchange = async (e) => api(`/api/recruiter/candidates/${id}`, {method:"PATCH",body:JSON.stringify({status:e.target.value})});
+    document.querySelector("[data-referral-note]").onsubmit = async (e) => {e.preventDefault();await api(`/api/recruiter/candidates/${id}/notes`,{method:"POST",body:JSON.stringify(Object.fromEntries(new FormData(e.currentTarget)))});location.reload();};
+    document.querySelector("[data-referral-interview]").onsubmit = async (e) => {e.preventDefault();const body=Object.fromEntries(new FormData(e.currentTarget));body.referralId=id;if(body.type==="video")body.meetingUrl=body.location;await api("/api/recruiter/interviews",{method:"POST",body:JSON.stringify(body)});location.href=href(routes.interviews);};
   }
   async function interviews() {
     const appId = new URLSearchParams(location.search).get("applicationId");

@@ -2,6 +2,8 @@
 
 Plateforme de recrutement trilingue destinée aux candidats, recruteurs et administrateurs. Workcrute fonctionne sur Cloudflare Pages, Workers et D1.
 
+L’accès recruteur aux candidats suit un modèle d’intermédiation : par défaut, seuls les profils et documents transmis explicitement par un administrateur sont accessibles. Les appels API et téléchargements sont contrôlés côté serveur.
+
 ## Accès
 
 - Site : [https://workcrute.pages.dev](https://workcrute.pages.dev)
