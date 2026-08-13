@@ -95,7 +95,7 @@ async function userFor(request, env) {
   const raw = sessionToken(request);
   if (!raw) return null;
   return env.DB.prepare(
-    "SELECT u.id,u.email,u.role,u.email_verified_at,s.id session_id,s.token_hash FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>?",
+    "SELECT u.id,u.email,u.role,u.email_verified_at,s.id session_id,s.token_hash FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND u.account_status='active'",
   )
     .bind(await digest(raw + env.SESSION_PEPPER), now())
     .first();
@@ -308,6 +308,7 @@ async function login(request, env) {
     .first();
   if (!user || typeof body.password !== "string")
     return bad("Identifiants invalides.", 401);
+  if (user.account_status === "suspended") return bad("Ce compte est suspendu.",403);
   const hash = await hashPassword(body.password, user.password_salt);
   if (hash !== user.password_hash) return bad("Identifiants invalides.", 401);
   const session = await createSession(env, user.id);
@@ -2174,9 +2175,9 @@ async function adminNotifications(request, env, path) {
 async function adminAuditList(request, env) {
   await requireAdmin(request, env);
   const { results = [] } = await env.DB.prepare(
-    "SELECT id,action,resource_type,resource_id,metadata_json,created_at FROM admin_audit_logs ORDER BY created_at DESC LIMIT 100",
+    "SELECT id,admin_session_id,action,resource_type,resource_id,before_json,after_json,metadata_json,created_at FROM admin_audit_logs ORDER BY created_at DESC LIMIT 100",
   ).all();
-  return json({ items: results.map((item) => ({ ...item, metadata: parseStored(item.metadata_json, {}) })) });
+  return json({ items: results.map((item) => ({ ...item, before:parseStored(item.before_json,null), after:parseStored(item.after_json,null), metadata:parseStored(item.metadata_json,{}), before_json:undefined, after_json:undefined, metadata_json:undefined })) });
 }
 async function adminSearch(request, env) {
   await requireAdmin(request, env);
@@ -2277,6 +2278,199 @@ async function adminDashboard(request, env) {
     lastEventId: Number(newest?.id || 0),
     pollAfterMs: 20000,
   });
+}
+const adminResources = new Set(["candidates", "recruiters", "companies", "jobs", "applications", "interviews"]);
+const adminAccountStatuses = new Set(["active", "suspended"]);
+const adminInterviewStatuses = new Set(["scheduled", "confirmed", "declined", "reschedule_requested", "cancelled", "completed"]);
+const adminJobStatuses = new Set(["draft", "published", "closed", "archived", "suspended"]);
+const adminApplicationStatuses = new Set(["submitted", "reviewing", "shortlisted", "interview", "rejected", "accepted", "withdrawn"]);
+function adminQueryParts(url, searchColumns, aliases = {}) {
+  const params = url.searchParams;
+  const clauses = [], values = [];
+  const search = clean(params.get("search"), 120);
+  if (search) {
+    clauses.push(`(${searchColumns.map((column) => `${column} LIKE ?`).join(" OR ")})`);
+    values.push(...searchColumns.map(() => `%${search}%`));
+  }
+  for (const [key, column] of Object.entries(aliases)) {
+    if (key === "dateColumn") continue;
+    const value = clean(params.get(key), 120);
+    if (value) {
+      const exact = key === "status";
+      clauses.push(`${column}${exact ? "=" : " LIKE "}?`);
+      values.push(exact ? value : `%${value}%`);
+    }
+  }
+  const from = clean(params.get("from"), 10), to = clean(params.get("to"), 10);
+  if (from) { clauses.push(`${aliases.dateColumn || "u.created_at"}>=?`); values.push(`${from} 00:00:00`); }
+  if (to) { clauses.push(`${aliases.dateColumn || "u.created_at"}<=?`); values.push(`${to} 23:59:59`); }
+  return { where: clauses.length ? ` WHERE ${clauses.join(" AND ")}` : "", values };
+}
+async function adminPaged(env, selectSql, countSql, parts, url, orderColumn = "created_at") {
+  const page = Math.max(1, Number.parseInt(url.searchParams.get("page") || "1", 10) || 1);
+  const pageSize = Math.min(100, Math.max(10, Number.parseInt(url.searchParams.get("pageSize") || "20", 10) || 20));
+  const offset = (page - 1) * pageSize;
+  const [rows, count] = await Promise.all([
+    env.DB.prepare(`${selectSql}${parts.where} ORDER BY ${orderColumn} DESC LIMIT ? OFFSET ?`).bind(...parts.values, pageSize, offset).all(),
+    env.DB.prepare(`${countSql}${parts.where}`).bind(...parts.values).first(),
+  ]);
+  const total = Number(count?.total || 0);
+  return json({ items: rows.results || [], page, pageSize, total, pages: Math.max(1, Math.ceil(total / pageSize)) });
+}
+function candidateCompleteness(row) {
+  const values = [row.first_name, row.last_name, row.phone, row.professional_title, row.city, row.availability, row.introduction];
+  let completed = values.filter(Boolean).length;
+  if (parseStored(row.skills_json, []).length) completed += 1;
+  if (parseStored(row.experience_json, []).length) completed += 1;
+  if (parseStored(row.education_json, []).length) completed += 1;
+  if (parseStored(row.languages_json, []).length) completed += 1;
+  if (Number(row.document_count || 0)) completed += 1;
+  return Math.round((completed / 12) * 100);
+}
+async function adminBusinessList(request, env, resource) {
+  await requireAdmin(request, env);
+  const url = new URL(request.url);
+  if (resource === "candidates") {
+    const parts = adminQueryParts(url, ["u.email", "p.first_name", "p.last_name", "p.phone", "p.professional_title", "p.city"], { city:"p.city", job:"p.professional_title", status:"u.account_status", dateColumn:"u.created_at" });
+    const response = await adminPaged(env,
+      "SELECT u.id,u.email,u.account_status status,u.created_at,p.first_name,p.last_name,p.phone,p.professional_title,p.city,p.availability,p.introduction,p.skills_json,p.experience_json,p.education_json,p.languages_json,(SELECT COUNT(*) FROM documents d WHERE d.user_id=u.id AND d.deleted_at IS NULL) document_count,(SELECT COUNT(*) FROM applications a WHERE a.candidate_user_id=u.id) applications_count,COALESCE((SELECT MAX(pe.created_at) FROM platform_events pe WHERE pe.actor_user_id=u.id),u.updated_at) last_activity FROM users u JOIN candidate_profiles p ON p.user_id=u.id",
+      "SELECT COUNT(*) total FROM users u JOIN candidate_profiles p ON p.user_id=u.id", parts, url, "u.created_at");
+    const data = await response.json(); data.items = data.items.map((item) => ({ ...item, profile_completion:candidateCompleteness(item) })); return json(data);
+  }
+  if (resource === "recruiters") {
+    const parts = adminQueryParts(url, ["u.email", "p.first_name", "p.last_name", "p.phone", "COALESCE(c.name,p.company_name)"], { company:"COALESCE(c.name,p.company_name)", sector:"COALESCE(c.sector,p.company_sector)", status:"u.account_status", dateColumn:"u.created_at" });
+    return adminPaged(env,
+      "SELECT u.id,u.email,u.account_status status,u.created_at,p.first_name,p.last_name,p.phone,COALESCE(c.name,p.company_name) company_name,COALESCE(c.sector,p.company_sector) sector,(SELECT COUNT(*) FROM job_offers j WHERE j.recruiter_user_id=u.id) jobs_count,(SELECT COUNT(*) FROM applications a JOIN job_offers j ON j.id=a.job_offer_id WHERE j.recruiter_user_id=u.id) applications_count,COALESCE((SELECT MAX(pe.created_at) FROM platform_events pe WHERE pe.actor_user_id=u.id),u.updated_at) last_activity FROM users u JOIN recruiter_profiles p ON p.user_id=u.id LEFT JOIN companies c ON c.owner_user_id=u.id",
+      "SELECT COUNT(*) total FROM users u JOIN recruiter_profiles p ON p.user_id=u.id LEFT JOIN companies c ON c.owner_user_id=u.id", parts, url, "u.created_at");
+  }
+  if (resource === "companies") {
+    const parts = adminQueryParts(url, ["c.name", "c.sector", "c.city"], { sector:"c.sector", city:"c.city", status:"c.status", dateColumn:"c.created_at" });
+    return adminPaged(env,
+      "SELECT c.id,c.name,c.sector,c.city,c.status,c.created_at,c.owner_user_id,(SELECT COUNT(*) FROM recruiter_profiles rp WHERE rp.user_id=c.owner_user_id) recruiters_count,(SELECT COUNT(*) FROM job_offers j WHERE j.company_id=c.id) jobs_count FROM companies c",
+      "SELECT COUNT(*) total FROM companies c", parts, url, "c.created_at");
+  }
+  if (resource === "jobs") {
+    const parts = adminQueryParts(url, ["j.title", "c.name", "j.domain", "j.city"], { company:"c.name", status:"j.status", sector:"j.domain", city:"j.city", dateColumn:"j.created_at" });
+    return adminPaged(env,
+      "SELECT j.id,j.title,j.domain,j.city,j.contract_type,j.status,j.created_at,j.published_at,j.company_id,c.name company_name,(SELECT COUNT(*) FROM applications a WHERE a.job_offer_id=j.id) applications_count FROM job_offers j LEFT JOIN companies c ON c.id=j.company_id",
+      "SELECT COUNT(*) total FROM job_offers j LEFT JOIN companies c ON c.id=j.company_id", parts, url, "j.created_at");
+  }
+  if (resource === "applications") {
+    const parts = adminQueryParts(url, ["a.id", "j.title", "c.name", "cp.first_name", "cp.last_name", "u.email"], { candidate:"(cp.first_name || ' ' || cp.last_name)", job:"j.title", company:"c.name", status:"a.status", dateColumn:"a.created_at" });
+    return adminPaged(env,
+      "SELECT a.id,a.status,a.created_at,a.updated_at,a.candidate_user_id,a.job_offer_id,cp.first_name,cp.last_name,u.email,j.title job_title,c.name company_name FROM applications a JOIN users u ON u.id=a.candidate_user_id JOIN candidate_profiles cp ON cp.user_id=u.id JOIN job_offers j ON j.id=a.job_offer_id LEFT JOIN companies c ON c.id=j.company_id",
+      "SELECT COUNT(*) total FROM applications a JOIN users u ON u.id=a.candidate_user_id JOIN candidate_profiles cp ON cp.user_id=u.id JOIN job_offers j ON j.id=a.job_offer_id LEFT JOIN companies c ON c.id=j.company_id", parts, url, "a.created_at");
+  }
+  const parts = adminQueryParts(url, ["i.id", "j.title", "c.name", "cp.first_name", "cp.last_name", "rp.first_name", "rp.last_name"], { candidate:"(cp.first_name || ' ' || cp.last_name)", recruiter:"(rp.first_name || ' ' || rp.last_name)", company:"c.name", status:"i.status", dateColumn:"i.starts_at" });
+  return adminPaged(env,
+    "SELECT i.id,i.application_id,i.starts_at,i.duration_minutes,i.interview_type,i.location,i.meeting_url,i.status,i.created_at,i.candidate_user_id,i.recruiter_user_id,j.title job_title,c.name company_name,cp.first_name candidate_first_name,cp.last_name candidate_last_name,rp.first_name recruiter_first_name,rp.last_name recruiter_last_name FROM interviews i JOIN applications a ON a.id=i.application_id JOIN job_offers j ON j.id=a.job_offer_id LEFT JOIN companies c ON c.id=j.company_id JOIN candidate_profiles cp ON cp.user_id=i.candidate_user_id JOIN recruiter_profiles rp ON rp.user_id=i.recruiter_user_id",
+    "SELECT COUNT(*) total FROM interviews i JOIN applications a ON a.id=i.application_id JOIN job_offers j ON j.id=a.job_offer_id LEFT JOIN companies c ON c.id=j.company_id JOIN candidate_profiles cp ON cp.user_id=i.candidate_user_id JOIN recruiter_profiles rp ON rp.user_id=i.recruiter_user_id", parts, url, "i.starts_at");
+}
+async function adminSnapshot(env, resource, id) {
+  const queries = {
+    candidates:"SELECT u.id,u.email,u.account_status,p.* FROM users u JOIN candidate_profiles p ON p.user_id=u.id WHERE u.id=?",
+    recruiters:"SELECT u.id,u.email,u.account_status,p.* FROM users u JOIN recruiter_profiles p ON p.user_id=u.id WHERE u.id=?",
+    companies:"SELECT * FROM companies WHERE id=?", jobs:"SELECT * FROM job_offers WHERE id=?",
+    applications:"SELECT * FROM applications WHERE id=?", interviews:"SELECT * FROM interviews WHERE id=?",
+  };
+  return env.DB.prepare(queries[resource]).bind(id).first();
+}
+async function adminBusinessDetail(request, env, resource, id) {
+  await requireAdmin(request, env);
+  const item = await adminSnapshot(env, resource, id);
+  if (!item) return bad("Ressource introuvable.", 404);
+  const related = {};
+  if (resource === "candidates") {
+    related.documents = (await env.DB.prepare("SELECT id,kind,original_name,size_bytes,is_default,created_at FROM documents WHERE user_id=? AND deleted_at IS NULL ORDER BY created_at DESC").bind(id).all()).results || [];
+    related.applications = (await env.DB.prepare("SELECT a.id,a.status,a.created_at,j.title,c.name company_name FROM applications a JOIN job_offers j ON j.id=a.job_offer_id LEFT JOIN companies c ON c.id=j.company_id WHERE a.candidate_user_id=? ORDER BY a.created_at DESC").bind(id).all()).results || [];
+  }
+  if (resource === "applications")
+    related.timeline = (await env.DB.prepare("SELECT h.status,h.created_at,h.actor_user_id FROM application_status_history h WHERE h.application_id=? ORDER BY h.created_at").bind(id).all()).results || [];
+  return json({ item, related });
+}
+function csvCell(value) {
+  let text = String(value ?? "");
+  if (/^[=+\-@]/.test(text)) text = `'${text}`;
+  return `"${text.replaceAll('"','""')}"`;
+}
+async function adminCandidateExport(request, env, id) {
+  await requireAdmin(request, env);
+  const row = await adminSnapshot(env,"candidates",id);
+  if (!row) return bad("Candidat introuvable.",404);
+  const columns=["id","email","first_name","last_name","phone","professional_title","city","availability","account_status","created_at"];
+  const body=`\uFEFF${columns.join(",")}\r\n${columns.map((key)=>csvCell(row[key])).join(",")}\r\n`;
+  return new Response(body,{headers:{"content-type":"text/csv; charset=utf-8","content-disposition":`attachment; filename="candidate-${id}.csv"`,"x-content-type-options":"nosniff"}});
+}
+async function adminBusinessMutation(request, env, resource, id, action) {
+  const session = await requireAdmin(request, env);
+  assertAdminOrigin(request, env);
+  const body = await request.json().catch(() => ({}));
+  const before = id ? await adminSnapshot(env, resource, id) : null;
+  if (id && !before) return bad("Ressource introuvable.", 404);
+  if (["suspend", "reactivate"].includes(action) && ["candidates", "recruiters"].includes(resource)) {
+    const status = action === "suspend" ? "suspended" : "active";
+    await env.DB.batch([env.DB.prepare("UPDATE users SET account_status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(status,id), ...(status === "suspended" ? [env.DB.prepare("DELETE FROM sessions WHERE user_id=?").bind(id)] : [])]);
+  } else if (["suspend", "reactivate", "close"].includes(action) && resource === "jobs") {
+    if (action === "suspend" && before.status !== "published")
+      return bad("Seule une offre publiée peut être suspendue.", 409);
+    if (action === "reactivate" && before.status !== "suspended")
+      return bad("Cette offre n’est pas suspendue.", 409);
+    const status = action === "suspend" ? "suspended" : action === "close" ? "closed" : "published";
+    await env.DB.prepare("UPDATE job_offers SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(status,id).run();
+  } else if (["suspend", "reactivate"].includes(action) && resource === "companies") {
+    await env.DB.prepare("UPDATE companies SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(action === "suspend" ? "suspended" : "active",id).run();
+  } else if (request.method === "DELETE") {
+    const tables = { candidates:"users", recruiters:"users", companies:"companies", jobs:"job_offers", applications:"applications", interviews:"interviews" };
+    await env.DB.prepare(`DELETE FROM ${tables[resource]} WHERE id=?`).bind(id).run();
+  } else if (resource === "candidates" && request.method === "PATCH") {
+    if (!validEmail(clean(body.email,254)) || !validPhone(body.phone)) return bad("Email ou téléphone invalide.");
+    await env.DB.batch([
+      env.DB.prepare("UPDATE users SET email=?,account_status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(clean(body.email,254).toLowerCase(),adminAccountStatuses.has(body.status)?body.status:before.account_status,id),
+      env.DB.prepare("UPDATE candidate_profiles SET first_name=?,last_name=?,phone=?,professional_title=?,city=?,availability=?,availability_details=?,introduction=?,updated_at=CURRENT_TIMESTAMP WHERE user_id=?").bind(clean(body.firstName,80),clean(body.lastName,80),String(body.phone).replace(/[\\s.-]/g,""),clean(body.professionalTitle,120)||null,clean(body.city,120)||null,clean(body.availability,40)||null,clean(body.availabilityDetails,160)||null,clean(body.introduction,1000)||null,id),
+    ]);
+  } else if (resource === "recruiters" && request.method === "POST") {
+    if (!validEmail(clean(body.email,254)) || !validPhone(body.phone) || !validPassword(body.password)) return bad("Informations recruteur invalides.");
+    id = crypto.randomUUID(); const salt=token();
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO users(id,email,password_hash,password_salt,role) VALUES(?,?,?,?, 'recruiter')").bind(id,clean(body.email,254).toLowerCase(),await hashPassword(body.password,salt),salt),
+      env.DB.prepare("INSERT INTO recruiter_profiles(user_id,first_name,last_name,phone,company_name,job_title,company_sector,city) VALUES(?,?,?,?,?,?,?,?)").bind(id,clean(body.firstName,80),clean(body.lastName,80),String(body.phone).replace(/[\\s.-]/g,""),clean(body.companyName,160)||null,clean(body.jobTitle,120)||null,clean(body.sector,120)||null,clean(body.city,120)||null),
+    ]);
+  } else if (resource === "recruiters" && request.method === "PATCH") {
+    if (!validEmail(clean(body.email,254)) || !validPhone(body.phone)) return bad("Email ou téléphone invalide.");
+    await env.DB.batch([
+      env.DB.prepare("UPDATE users SET email=?,account_status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(clean(body.email,254).toLowerCase(),adminAccountStatuses.has(body.status)?body.status:before.account_status,id),
+      env.DB.prepare("UPDATE recruiter_profiles SET first_name=?,last_name=?,phone=?,company_name=?,job_title=?,company_sector=?,city=?,updated_at=CURRENT_TIMESTAMP WHERE user_id=?").bind(clean(body.firstName,80),clean(body.lastName,80),String(body.phone).replace(/[\\s.-]/g,""),clean(body.companyName,160)||null,clean(body.jobTitle,120)||null,clean(body.sector,120)||null,clean(body.city,120)||null,id),
+    ]);
+  } else if (resource === "companies" && request.method === "POST") {
+    if (!clean(body.name,160) || !clean(body.ownerUserId,80)) return bad("Nom et recruteur propriétaire obligatoires.");
+    id=crypto.randomUUID(); await env.DB.prepare("INSERT INTO companies(id,owner_user_id,name,sector,city,website,description,status) VALUES(?,?,?,?,?,?,?,'active')").bind(id,clean(body.ownerUserId,80),clean(body.name,160),clean(body.sector,120)||null,clean(body.city,120)||null,clean(body.website,240)||null,clean(body.description,2000)||null).run();
+  } else if (resource === "companies" && request.method === "PATCH") {
+    await env.DB.prepare("UPDATE companies SET name=?,sector=?,city=?,website=?,description=?,status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(clean(body.name,160),clean(body.sector,120)||null,clean(body.city,120)||null,clean(body.website,240)||null,clean(body.description,2000)||null,adminAccountStatuses.has(body.status)?body.status:before.status,id).run();
+  } else if (resource === "jobs" && request.method === "PATCH") {
+    if (!clean(body.title,160) || !clean(body.description,5000)) return bad("Titre et description obligatoires.");
+    await env.DB.prepare("UPDATE job_offers SET title=?,domain=?,description=?,contract_type=?,city=?,work_mode=?,status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(clean(body.title,160),clean(body.domain,120),clean(body.description,5000),clean(body.contractType,80),clean(body.city,120),clean(body.workMode,40),adminJobStatuses.has(body.status)?body.status:before.status,id).run();
+  } else if (resource === "applications" && request.method === "PATCH") {
+    if (!adminApplicationStatuses.has(body.status)) return bad("Statut invalide.");
+    await env.DB.batch([env.DB.prepare("UPDATE applications SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(body.status,id),env.DB.prepare("INSERT INTO application_status_history(id,application_id,status) VALUES(?,?,?)").bind(crypto.randomUUID(),id,body.status)]);
+  } else if (resource === "interviews" && request.method === "POST") {
+    const application = await env.DB.prepare("SELECT a.id,a.candidate_user_id,j.recruiter_user_id FROM applications a JOIN job_offers j ON j.id=a.job_offer_id WHERE a.id=?").bind(clean(body.applicationId,80)).first();
+    if (!application || !clean(body.startsAt,50) || !["onsite","video","phone"].includes(body.type)) return bad("Entretien invalide.");
+    id=crypto.randomUUID(); await env.DB.prepare("INSERT INTO interviews(id,application_id,candidate_user_id,recruiter_user_id,starts_at,duration_minutes,interview_type,location,meeting_url,status) VALUES(?,?,?,?,?,?,?,?,?,'scheduled')").bind(id,application.id,application.candidate_user_id,application.recruiter_user_id,body.startsAt,Number(body.duration)||60,body.type,clean(body.location,500)||null,clean(body.meetingUrl,500)||null).run();
+  } else if (resource === "interviews" && request.method === "PATCH") {
+    if (!adminInterviewStatuses.has(body.status) || !clean(body.startsAt,50)) return bad("Entretien invalide.");
+    await env.DB.prepare("UPDATE interviews SET starts_at=?,duration_minutes=?,interview_type=?,location=?,meeting_url=?,status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(body.startsAt,Number(body.duration)||60,["onsite","video","phone"].includes(body.type)?body.type:before.interview_type,clean(body.location,500)||null,clean(body.meetingUrl,500)||null,body.status,id).run();
+  } else return bad("Action non prise en charge.",405);
+  const after = request.method === "DELETE" ? null : await adminSnapshot(env, resource, id);
+  await adminAudit(env, session.id, `admin_${resource}_${action || (before ? "updated" : "created")}`, resource.slice(0,-1), id, before, after);
+  return json({ ok:true, id, item:after }, before ? 200 : 201);
+}
+async function adminBusiness(request, env, path) {
+  const parts=path.split("/").filter(Boolean), resource=parts[3], id=parts[4]||null, action=parts[5]||null;
+  if (!adminResources.has(resource)) return bad("Module admin introuvable.",404);
+  if (request.method === "GET" && !id) return adminBusinessList(request,env,resource);
+  if (request.method === "GET" && resource === "candidates" && id && action === "export") return adminCandidateExport(request,env,id);
+  if (request.method === "GET" && id) return adminBusinessDetail(request,env,resource,id);
+  return adminBusinessMutation(request,env,resource,id,action);
 }
 async function adminQuestionnaire(request, env, path) {
   const user = await requireAdmin(request, env);
@@ -2519,6 +2713,8 @@ export default {
         response = await adminStats(request, env);
       else if (path === "/api/admin/dashboard" && request.method === "GET")
         response = await adminDashboard(request, env);
+      else if (path === "/api/admin/business" || path.startsWith("/api/admin/business/"))
+        response = await adminBusiness(request, env, path);
       else if (
         path === "/api/admin/questionnaire" ||
         path.startsWith("/api/admin/questionnaire/")

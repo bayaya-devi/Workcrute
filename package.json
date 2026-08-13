@@ -11,6 +11,7 @@
     "db:migrate:local": "wrangler d1 migrations apply workcrute --local",
     "db:migrate:remote": "wrangler d1 migrations apply workcrute --remote",
     "test:admin-monitoring": "node scripts/test-admin-monitoring.mjs",
+    "test:admin-business": "node scripts/test-admin-business.mjs",
     "seed:demo": "node scripts/seed-demo.js"
   },
   "devDependencies": {
