@@ -1,26 +1,52 @@
-# Cloudflare setup for Workcrute
+# Configuration Cloudflare de Workcrute
 
-This repository is ready for Cloudflare Pages as a static site.
+## Ressources actives
 
-## Recommended Pages settings
+- Worker : `workcrute`
+- Pages : `workcrute`
+- D1 : `workcrute`, binding `DB`
+- Assets Worker : binding `ASSETS`, répertoire `public/`
+- Tâche planifiée : traitement périodique de la file email
 
-- Project name: `workcrute`
-- Production branch: `main`
-- Framework preset: `None`
-- Build command: leave empty
-- Build output directory: `/`
+Les documents sont actuellement stockés de manière privée dans D1 par morceaux. Le code prend également en charge un binding objet optionnel nommé `DOCUMENTS`.
 
-## GitHub Actions deployment
+## Secrets requis
 
-The workflow in `.github/workflows/cloudflare-pages.yml` can deploy automatically after these GitHub repository secrets are added:
+- `SESSION_PEPPER`
+- `ADMIN_AUTH_SECRET_1`
+- `ADMIN_AUTH_SECRET_2`
 
-- `CLOUDFLARE_API_TOKEN`
-- `CLOUDFLARE_ACCOUNT_ID`
+## Email optionnel
 
-The API token needs Cloudflare Pages edit permissions for the target account.
+- `EMAIL_FROM`
+- `EMAIL_PROVIDER_API_KEY`
+- ou un binding `EMAIL` compatible
 
-## Included Cloudflare files
+Ne jamais placer les valeurs dans `wrangler.jsonc`, GitHub, le README ou la documentation.
 
-- `_headers`: security headers and static asset cache rules.
-- `_redirects`: fallback routing so direct links return `index.html`.
-- `wrangler.toml`: local Wrangler/Pages project configuration.
+## Déployer
+
+```powershell
+pnpm exec wrangler whoami
+pnpm exec wrangler deploy --dry-run
+pnpm exec wrangler d1 migrations apply workcrute --remote
+pnpm exec wrangler deploy --keep-vars
+pnpm exec wrangler pages deploy public --project-name workcrute --branch main
+```
+
+## Vérifier
+
+- `https://workcrute.pages.dev/`
+- `https://workcrute.aetbconseil.workers.dev/api/public/config`
+- connexion candidat et recruteur ;
+- double connexion admin ;
+- envoi d’un email de test ;
+- centre d’erreurs et activité en direct.
+
+## Sauvegarder D1
+
+```powershell
+pnpm exec wrangler d1 export workcrute --remote --output tmp/workcrute-backup.sql
+```
+
+Le fichier de sauvegarde ne doit jamais être commité.
