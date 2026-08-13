@@ -133,6 +133,37 @@ async function audit(env, user, action, type, id, metadata = {}) {
       JSON.stringify(metadata),
     )
     .run();
+  const event = {
+    profile_updated: ["PROFILE_UPDATED", user?.role === "recruiter" ? "recruiters" : "candidates"],
+    document_uploaded: ["DOCUMENT_UPLOADED", "candidates"],
+    job_created: ["JOB_CREATED", "jobs"],
+    job_published: ["JOB_PUBLISHED", "jobs"],
+    application_status_changed: ["APPLICATION_STATUS_CHANGED", "applications"],
+  }[action];
+  if (event)
+    await platformEvent(env, event[0], event[1], user?.id, type, id, metadata);
+}
+async function platformEvent(
+  env,
+  eventType,
+  category,
+  actorUserId = null,
+  resourceType = null,
+  resourceId = null,
+  metadata = {},
+) {
+  await env.DB.prepare(
+    "INSERT INTO platform_events(event_type,category,actor_user_id,resource_type,resource_id,metadata_json) VALUES(?,?,?,?,?,?)",
+  )
+    .bind(
+      eventType,
+      category,
+      actorUserId,
+      resourceType,
+      resourceId,
+      JSON.stringify(metadata),
+    )
+    .run();
 }
 async function profile(env, user) {
   if (user.role === "candidate")
@@ -262,6 +293,7 @@ async function register(request, env) {
   const verify = await emailToken(env, id, "verify_email");
   await sendEmail(env, { to: email, template: "verify_email", token: verify });
   const session = await createSession(env, id);
+  await platformEvent(env, "USER_REGISTERED", role === "candidate" ? "candidates" : "recruiters", id, "user", id, { role });
   return json(
     { user: { id, email, role }, emailVerificationPending: true },
     201,
@@ -279,6 +311,7 @@ async function login(request, env) {
   const hash = await hashPassword(body.password, user.password_salt);
   if (hash !== user.password_hash) return bad("Identifiants invalides.", 401);
   const session = await createSession(env, user.id);
+  await platformEvent(env, "USER_LOGIN", user.role === "candidate" ? "candidates" : "recruiters", user.id, "user", user.id, { role: user.role });
   return json(
     { user: { id: user.id, email: user.email, role: user.role } },
     200,
@@ -329,6 +362,7 @@ async function updateProfile(request, env) {
         user.id,
       )
       .run();
+    await audit(env, user, "profile_updated", "recruiter_profile", user.id);
     return me(request, env);
   }
   if (user.role !== "candidate") return bad("Profil candidat requis.", 403);
@@ -860,6 +894,7 @@ async function applications(request, env, path) {
           "/recruteur/candidats",
         ),
       ]);
+      await platformEvent(env, "APPLICATION_CREATED", "applications", user.id, "application", id, { jobId });
       return json({ application: { id, status: "submitted" } }, 201);
     } catch (error) {
       if (String(error).includes("UNIQUE"))
@@ -1232,6 +1267,8 @@ async function saveRecruiterOffer(request, env, user, id = null) {
     )
     .run();
   await audit(env, user, "job_created", "job_offer", id, { status });
+  if (status === "published")
+    await platformEvent(env, "JOB_PUBLISHED", "jobs", user.id, "job_offer", id);
   return json({ job: { id, status } }, 201);
 }
 async function recruiterQuestionnaires(request, env, path) {
@@ -1651,6 +1688,7 @@ async function recruiterInterviews(request, env, path) {
         "/demandeur/entretiens",
       ),
     ]);
+    await platformEvent(env, "INTERVIEW_CREATED", "interviews", user.id, "interview", id, { applicationId: application.id });
     return json({ interview: { id } }, 201);
   }
   const id = path.split("/").pop(),
@@ -1865,6 +1903,10 @@ async function adminAudit(env, sessionId, action, type, id, before, after, metad
       JSON.stringify(metadata),
     )
     .run();
+  if (action === "admin_login")
+    await platformEvent(env, "ADMIN_LOGIN", "security", null, type, id);
+  if (["secret_changed", "admin_email_changed"].includes(action))
+    await platformEvent(env, "ADMIN_SETTING_CHANGED", "security", null, type, id, { setting: action });
 }
 async function adminNotice(env, category, title, body, severity = "info", href = null) {
   await env.DB.prepare(
@@ -2153,6 +2195,89 @@ async function adminStats(request, env) {
   ).first();
   return json({ stats: row });
 }
+const adminEventCategories = new Set([
+  "candidates",
+  "recruiters",
+  "jobs",
+  "applications",
+  "companies",
+  "interviews",
+  "security",
+  "errors",
+]);
+async function adminDashboard(request, env) {
+  await requireAdmin(request, env);
+  const url = new URL(request.url);
+  const requestedCategory = clean(url.searchParams.get("category"), 30);
+  const category = adminEventCategories.has(requestedCategory)
+    ? requestedCategory
+    : null;
+  const after = Math.max(0, Number.parseInt(url.searchParams.get("after") || "0", 10) || 0);
+
+  const [totals, today] = await Promise.all([
+    env.DB.prepare(
+      "SELECT (SELECT COUNT(*) FROM users WHERE role='candidate') candidates,(SELECT COUNT(*) FROM users WHERE role='recruiter') recruiters,(SELECT COUNT(*) FROM companies) companies,(SELECT COUNT(*) FROM job_offers WHERE status='published') active_jobs,(SELECT COUNT(*) FROM applications) applications,(SELECT COUNT(*) FROM interviews) interviews",
+    ).first(),
+    env.DB.prepare(
+      "SELECT (SELECT COUNT(*) FROM users WHERE date(created_at)=date('now')) registrations,(SELECT COUNT(*) FROM applications WHERE date(created_at)=date('now')) applications,(SELECT COUNT(*) FROM job_offers WHERE status='published' AND date(published_at)=date('now')) jobs_published,(SELECT COUNT(*) FROM interviews WHERE date(created_at)=date('now')) interviews_created,(SELECT COUNT(*) FROM platform_events WHERE event_type='SYSTEM_ERROR' AND date(created_at)=date('now')) errors",
+    ).first(),
+  ]);
+
+  const checks = { database: true, storage: false, authentication: false, email: false };
+  try {
+    const storageTable = await env.DB.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='document_chunks'",
+    ).first();
+    checks.storage = Boolean(env.DOCUMENTS || storageTable?.name);
+  } catch {
+    checks.database = false;
+  }
+  checks.authentication = Boolean(
+    env.ADMIN_AUTH_SECRET_1 && env.ADMIN_AUTH_SECRET_2 && env.SESSION_PEPPER,
+  );
+  checks.email = Boolean(env.EMAIL_PROVIDER_API_KEY && env.EMAIL_FROM);
+  const status = !checks.database || !checks.authentication
+    ? "incident"
+    : !checks.storage || !checks.email
+      ? "degraded"
+      : "operational";
+
+  let query = "SELECT id,event_type,category,resource_type,resource_id,metadata_json,created_at FROM platform_events";
+  const conditions = [];
+  const bindings = [];
+  if (after) {
+    conditions.push("id>?");
+    bindings.push(after);
+  }
+  if (category) {
+    conditions.push("category=?");
+    bindings.push(category);
+  }
+  if (conditions.length) query += ` WHERE ${conditions.join(" AND ")}`;
+  query += " ORDER BY id DESC LIMIT 50";
+  const activityStatement = env.DB.prepare(query);
+  const { results = [] } = bindings.length
+    ? await activityStatement.bind(...bindings).all()
+    : await activityStatement.all();
+  const newestStatement = env.DB.prepare(
+    `SELECT COALESCE(MAX(id),0) id FROM platform_events${category ? " WHERE category=?" : ""}`,
+  );
+  const newest = category
+    ? await newestStatement.bind(category).first()
+    : await newestStatement.first();
+  return json({
+    system: { status, checks },
+    totals: totals || {},
+    today: today || {},
+    activity: results.map((item) => ({
+      ...item,
+      metadata: parseStored(item.metadata_json, {}),
+      metadata_json: undefined,
+    })),
+    lastEventId: Number(newest?.id || 0),
+    pollAfterMs: 20000,
+  });
+}
 async function adminQuestionnaire(request, env, path) {
   const user = await requireAdmin(request, env);
   if (request.method === "GET") {
@@ -2259,11 +2384,14 @@ export default {
       else if (path === "/api/auth/login" && request.method === "POST")
         response = await login(request, env);
       else if (path === "/api/auth/logout" && request.method === "POST") {
+        const currentUser = await userFor(request, env);
         const raw = sessionToken(request);
         if (raw)
           await env.DB.prepare("DELETE FROM sessions WHERE token_hash=?")
             .bind(await digest(raw + env.SESSION_PEPPER))
             .run();
+        if (currentUser)
+          await platformEvent(env, "USER_LOGOUT", currentUser.role === "candidate" ? "candidates" : "recruiters", currentUser.id, "user", currentUser.id, { role: currentUser.role });
         response = json({ ok: true }, 200, {
           "set-cookie": cookie("wc_session", ""),
         });
@@ -2389,6 +2517,8 @@ export default {
         response = await adminSearch(request, env);
       else if (path === "/api/admin/stats")
         response = await adminStats(request, env);
+      else if (path === "/api/admin/dashboard" && request.method === "GET")
+        response = await adminDashboard(request, env);
       else if (
         path === "/api/admin/questionnaire" ||
         path.startsWith("/api/admin/questionnaire/")
@@ -2411,6 +2541,11 @@ export default {
         headers.set("cache-control", "no-store");
         return new Response(error.body, { status: error.status, headers });
       }
+      try {
+        await platformEvent(env, "SYSTEM_ERROR", "errors", null, "route", path, {
+          method: request.method,
+        });
+      } catch {}
       console.error(
         JSON.stringify({
           event: "api_error",

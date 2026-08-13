@@ -18,6 +18,7 @@
       if (value) node.placeholder = value;
     });
     document.querySelectorAll("[data-admin-language]").forEach((select) => select.value = lang);
+    document.dispatchEvent(new CustomEvent("admin:language", { detail: { language: lang } }));
   };
   window.workcruteAdminI18n = { apply, messages };
   apply(localStorage.getItem("workcrute-admin-language") || "fr");
