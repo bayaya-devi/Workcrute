@@ -331,7 +331,7 @@ async function register(request, env) {
     ).bind(id, email, hash, salt, role, platform.registrations.emailVerificationRequired ? null : now()),
     role === "candidate"
       ? env.DB.prepare(
-          "INSERT INTO candidate_profiles(user_id,first_name,last_name,phone,city,region,preferred_language,professional_title,introduction,availability,skills_json,preferences_json,questionnaire_answers) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+          "INSERT INTO candidate_profiles(user_id,first_name,last_name,phone,city,region,preferred_language,professional_title,introduction,availability,skills_json,preferences_json,experience_json,questionnaire_answers) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         ).bind(
           id,
           first,
@@ -349,6 +349,7 @@ async function register(request, env) {
             contract: candidateAnswers.contract || null,
             workMode: candidateAnswers.workMode || null,
           }),
+          JSON.stringify(candidateAnswers.experience ? [candidateAnswers.experience] : []),
           JSON.stringify(candidateAnswers),
         )
       : env.DB.prepare(
@@ -771,7 +772,7 @@ async function jobs(request, env, path) {
     user = await userFor(request, env);
   if (request.method === "GET" && path === "/api/jobs") {
     let sql =
-        "SELECT j.id,j.title,j.domain,j.description,j.contract_type,j.city,j.work_mode,j.experience_level,j.published_at,c.name company_name" +
+        "SELECT j.id,j.title,j.domain,j.description,j.required_skills,j.contract_type,j.city,j.work_mode,j.experience_level,j.education_level,j.published_at,c.name company_name" +
         (user?.role === "candidate"
           ? ",EXISTS(SELECT 1 FROM saved_jobs s WHERE s.job_offer_id=j.id AND s.user_id=?) is_saved"
           : "") +
@@ -800,7 +801,21 @@ async function jobs(request, env, path) {
     )
       .bind(...params)
       .all();
-    return json({ items: results });
+    if (user?.role !== "candidate") return json({ items: results });
+    const [candidate, platform] = await Promise.all([
+      env.DB.prepare("SELECT * FROM candidate_profiles WHERE user_id=?")
+        .bind(user.id)
+        .first(),
+      getPlatformSettings(env),
+    ]);
+    return json({
+      items: results.map((job) => ({
+        ...job,
+        matching_score: candidate
+          ? matching(job, candidate, platform.matching).score
+          : null,
+      })),
+    });
   }
   if (request.method === "GET" && path.startsWith("/api/jobs/")) {
     const id = path.split("/").pop();
@@ -837,9 +852,21 @@ async function jobs(request, env, path) {
         };
       }
     }
+    let matchingScore = null;
+    if (user?.role === "candidate") {
+      const [candidate, platform] = await Promise.all([
+        env.DB.prepare("SELECT * FROM candidate_profiles WHERE user_id=?")
+          .bind(user.id)
+          .first(),
+        getPlatformSettings(env),
+      ]);
+      matchingScore = candidate
+        ? matching(job, candidate, platform.matching).score
+        : null;
+    }
     return json({
       job,
-      matchingScore: null,
+      matchingScore,
       questionnaire: applicationQuestionnaire,
     });
   }
@@ -1810,18 +1837,18 @@ async function recruiterQuestions(request, env, path) {
 }
 function matching(job, candidate, settings) {
   if (!settings?.enabled) return { score: null, breakdown: [], recommended: false };
-  const jobSkills = parseStored(job.required_skills, []).map((x) =>
-      String(x).toLowerCase(),
-    ),
-    skills = parseStored(candidate.skills_json, []).map((x) =>
-      String(x).toLowerCase(),
-    ),
+  const normalize = (value) =>
+      String(value || "")
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .toLowerCase(),
+    jobSkills = parseStored(job.required_skills, []).map(normalize).filter(Boolean),
+    skills = parseStored(candidate.skills_json, []).map(normalize).filter(Boolean),
     breakdown = [],
     push = (key, score) => breakdown.push({ key, score, weight: Number(settings.weights?.[key] || 0) });
   if (jobSkills.length && skills.length) {
-    const hits = jobSkills.filter((x) =>
-      skills.some((y) => y.includes(x) || x.includes(y)),
-    ).length;
+    const hits = jobSkills.filter((required) => skills.includes(required)).length;
     push("skills", Math.round((hits / jobSkills.length) * 100));
   }
   const jobCity = job.job_city || job.city;
@@ -1829,22 +1856,26 @@ function matching(job, candidate, settings) {
   if (jobCity && candidateCity)
     push(
       "location",
-      jobCity.toLowerCase() === candidateCity.toLowerCase() ? 100 : 0,
+      normalize(jobCity) === normalize(candidateCity) ? 100 : 0,
     );
-  if (job.experience_level && parseStored(candidate.experience_json, []).length)
-    push("experience", 70);
-  if (job.education_level && parseStored(candidate.education_json, []).length)
-    push("education", 70);
-  if (job.contract_type && parseStored(candidate.preferences_json, {}).contract)
-    push("contract", job.contract_type === parseStored(candidate.preferences_json, {}).contract ? 100 : 0);
-  if (candidate.availability) push("availability", 100);
+  const experience = parseStored(candidate.experience_json, []).map(normalize);
+  if (job.experience_level && experience.length)
+    push("experience", experience.includes(normalize(job.experience_level)) ? 100 : 0);
+  const education = parseStored(candidate.education_json, []).map(normalize);
+  if (job.education_level && education.length)
+    push("education", education.includes(normalize(job.education_level)) ? 100 : 0);
+  const preferences = parseStored(candidate.preferences_json, {});
+  if (job.contract_type && preferences.contract)
+    push("contract", normalize(job.contract_type) === normalize(preferences.contract) ? 100 : 0);
   const evaluation = parseStored(candidate.questionnaire_evaluation_json, {});
   if (Number.isFinite(evaluation.score)) push("questionnaire", evaluation.score);
   if (breakdown.length < 2) return { score: null, breakdown: [] };
-  const total = breakdown.reduce((sum, x) => sum + x.weight, 0),
-    score = Math.round(
-      breakdown.reduce((sum, x) => sum + x.score * x.weight, 0) / total,
-    );
+  const weighted = breakdown.filter((item) => item.weight > 0),
+    total = weighted.reduce((sum, x) => sum + x.weight, 0);
+  if (!total) return { score: null, breakdown: [] };
+  const score = Math.round(
+    weighted.reduce((sum, x) => sum + x.score * x.weight, 0) / total,
+  );
   return { score, breakdown, recommended: score >= settings.recommendedThreshold };
 }
 async function recruiterApplications(request, env, path) {
