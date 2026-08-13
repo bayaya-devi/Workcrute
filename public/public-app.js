@@ -16,12 +16,14 @@
         })[char],
     );
   const t = (key) => i18n.t(key);
+  const brandLogo = () => window.WorkcruteConfig?.brandAssets?.logo?.url || href("/assets/logo-workrute.png");
+  const siteName = () => window.WorkcruteConfig?.general?.siteName || "Workcrute";
 
   const header = () => `
     <a class="wc-skip-link" href="#main" data-i18n="skip">${t("skip")}</a>
     <header class="wc-header">
       <div class="wc-container wc-header-inner">
-        <a class="wc-brand" data-go="/" href="${href("/")}" aria-label="Workcrute"><img src="${href("/assets/logo-workrute.png")}" alt="Workcrute" width="300" height="96"></a>
+        <a class="wc-brand" data-go="/" href="${href("/")}" aria-label="${escapeHtml(siteName())}"><img data-site-logo src="${brandLogo()}" alt="${escapeHtml(siteName())}" width="300" height="96"></a>
         <nav class="wc-nav" data-i18n-aria="main_navigation" aria-label="Navigation principale">
           <a data-go="/" href="${href("/")}" data-nav="home" data-i18n="nav_home">${t("nav_home")}</a>
           <a data-go="/offres" href="${href("/offres")}" data-nav="jobs" data-i18n="nav_jobs">${t("nav_jobs")}</a>
@@ -42,7 +44,7 @@
     <div class="wc-mobile-drawer" data-mobile-drawer aria-hidden="true">
       <button class="wc-drawer-backdrop" type="button" data-menu-close data-i18n-aria="close" aria-label="Fermer"></button>
       <aside class="wc-drawer-panel" data-i18n-aria="mobile_navigation" aria-label="Navigation mobile">
-        <div class="wc-drawer-head"><a class="wc-brand" data-go="/" href="${href("/")}"><img src="${href("/assets/logo-workrute.png")}" alt="Workcrute"></a><button class="wc-icon-button" type="button" data-menu-close data-i18n-aria="close">×</button></div>
+        <div class="wc-drawer-head"><a class="wc-brand" data-go="/" href="${href("/")}"><img data-site-logo src="${brandLogo()}" alt="Workcrute"></a><button class="wc-icon-button" type="button" data-menu-close data-i18n-aria="close">×</button></div>
         <nav class="wc-drawer-nav"><a data-go="/" href="${href("/")}" data-i18n="nav_home">${t("nav_home")}</a><a data-go="/offres" href="${href("/offres")}" data-i18n="nav_jobs">${t("nav_jobs")}</a><a data-go="/candidats" href="${href("/candidats")}" data-i18n="nav_candidates">${t("nav_candidates")}</a><a data-go="/recruteurs" href="${href("/recruteurs")}" data-i18n="nav_recruiters">${t("nav_recruiters")}</a><a href="${href("/")}#how" data-i18n="nav_how">${t("nav_how")}</a><a data-go="/a-propos" href="${href("/a-propos")}" data-i18n="nav_about">${t("nav_about")}</a></nav>
         <div class="wc-drawer-actions"><a class="wc-button wc-button--secondary" data-go="/connexion" href="${href("/connexion")}" data-i18n="sign_in">${t("sign_in")}</a><a class="wc-button wc-button--primary" data-go="/inscription" href="${href("/inscription")}" data-i18n="create_account">${t("create_account")}</a></div>
       </aside>
@@ -50,14 +52,14 @@
 
   const footer = () => `
     <footer class="wc-footer"><div class="wc-container"><div class="wc-footer-grid">
-      <div><a class="wc-brand" data-go="/" href="${href("/")}"><img src="${href("/assets/logo-workrute.png")}" alt="Workcrute"></a><p data-i18n="footer_copy">${t("footer_copy")}</p></div>
+      <div><a class="wc-brand" data-go="/" href="${href("/")}"><img data-site-logo src="${brandLogo()}" alt="Workcrute"></a><p data-i18n="footer_copy">${t("footer_copy")}</p></div>
       <div><h3 data-i18n="footer_candidates">${t("footer_candidates")}</h3><div class="wc-footer-links"><a data-go="/offres" href="${href("/offres")}" data-i18n="footer_jobs">${t("footer_jobs")}</a><a data-go="/inscription/demandeur" href="${href("/inscription/demandeur")}" data-i18n="footer_register">${t("footer_register")}</a></div></div>
       <div><h3 data-i18n="footer_recruiters">${t("footer_recruiters")}</h3><div class="wc-footer-links"><a data-go="/recruteurs" href="${href("/recruteurs")}" data-i18n="nav_recruiters">${t("nav_recruiters")}</a><a data-go="/inscription/recruteur" href="${href("/inscription/recruteur")}" data-i18n="create_account">${t("create_account")}</a></div></div>
       <div><h3 data-i18n="footer_company">${t("footer_company")}</h3><div class="wc-footer-links"><a href="${href("/")}#how" data-i18n="nav_how">${t("nav_how")}</a><a data-go="/a-propos" href="${href("/a-propos")}" data-i18n="nav_about">${t("nav_about")}</a><a data-go="/mentions-legales" href="${href("/mentions-legales")}" data-i18n="footer_legal">${t("footer_legal")}</a></div></div>
-      <div><h3 data-i18n="footer_support">${t("footer_support")}</h3><div class="wc-footer-links"><a data-go="/aide" href="${href("/aide")}" data-i18n="footer_help">${t("footer_help")}</a><a data-go="/confidentialite" href="${href("/confidentialite")}" data-i18n="footer_privacy">${t("footer_privacy")}</a><a data-go="/conditions" href="${href("/conditions")}" data-i18n="footer_terms">${t("footer_terms")}</a></div></div>
-    </div><div class="wc-footer-bottom"><span>© <span data-year></span> Workcrute. <span data-i18n="footer_rights">${t("footer_rights")}</span></span><span>FR · EN · العربية</span></div></div></footer>`;
+      <div><h3 data-i18n="footer_support">${t("footer_support")}</h3><div class="wc-footer-links"><a data-go="/aide" href="${href("/aide")}" data-i18n="footer_help">${t("footer_help")}</a>${window.WorkcruteConfig?.general?.supportEmail?`<a href="mailto:${escapeHtml(window.WorkcruteConfig.general.supportEmail)}">${escapeHtml(window.WorkcruteConfig.general.supportEmail)}</a>`:""}${window.WorkcruteConfig?.general?.supportPhone?`<a href="tel:${escapeHtml(window.WorkcruteConfig.general.supportPhone)}">${escapeHtml(window.WorkcruteConfig.general.supportPhone)}</a>`:""}<a data-go="/confidentialite" href="${href("/confidentialite")}" data-i18n="footer_privacy">${t("footer_privacy")}</a><a data-go="/conditions" href="${href("/conditions")}" data-i18n="footer_terms">${t("footer_terms")}</a></div></div>
+    </div><div class="wc-footer-bottom"><span>© <span data-year></span> ${escapeHtml(siteName())}. <span data-i18n="footer_rights">${t("footer_rights")}</span></span><span>FR · EN · العربية</span></div></div></footer>`;
 
-  const chatbot = () => `
+  const chatbot = () => window.WorkcruteConfig?.chatbot?.enabled === false ? "" : `
     <button class="wc-chat-launcher" type="button" data-chat-open data-i18n-aria="open_chat" aria-expanded="false">✦</button>
     <section class="wc-chat" data-chat data-i18n-aria="chat_title" aria-label="Assistant Workcrute" aria-hidden="true">
       <header class="wc-chat-head"><div class="wc-chat-title"><span class="wc-avatar">W</span><span><strong data-i18n="chat_title">${t("chat_title")}</strong><small data-i18n="chat_status">${t("chat_status")}</small></span></div><button class="wc-chat-close" type="button" data-chat-close data-i18n-aria="close">×</button></header>
@@ -177,7 +179,7 @@
     };
     const welcome = () => {
       body.innerHTML = "";
-      addMessage(t("chat_welcome"));
+      addMessage(window.WorkcruteConfig?.chatbot?.welcome?.[i18n.getLanguage()] || t("chat_welcome"));
       suggestions(faq.filter((_, index) => index % 20 === 0).slice(0, 3));
       welcomed = true;
     };
@@ -197,7 +199,7 @@
         }
       } catch {
         const ranked = findFaq(clean);
-        if (ranked[0]?.score >= 0.43)
+        if (ranked[0]?.score >= (window.WorkcruteConfig?.chatbot?.similarityThreshold || 0.43))
           addMessage(localized(ranked[0].entry, "answer"));
         else {
           addMessage(t("chat_unknown"));
@@ -514,6 +516,7 @@
   }
 
   async function init() {
+    await window.WorkcruteConfigReady;
     injectShell();
     setupNavigation();
     setupChat();

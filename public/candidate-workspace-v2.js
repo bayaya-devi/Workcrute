@@ -69,6 +69,7 @@
   const navLink = ([key, icon]) =>
     `<a href="${href(routes[key])}" ${current(key) ? 'aria-current="page"' : ""}><span class="cand-nav-icon" aria-hidden="true">${icon}</span><span>${t(key)}</span></a>`;
   function shell() {
+    const siteName = window.WorkcruteConfig?.general?.siteName || "Workcrute";
     document.body.className = "candidate-body";
     document.body.innerHTML = `<a class="wc-skip-link" href="#candidate-content">${t("viewAll")}</a><div class="cand-shell"><aside class="cand-sidebar" id="cand-sidebar" aria-label="${t("menu")}"><a class="cand-brand" href="${href(routes.dashboard)}"><span class="cand-brand-mark">W</span><span>Workcrute</span></a><nav class="cand-nav">${nav.map(navLink).join("")}</nav><div class="cand-sidebar-foot"><button class="cand-logout" data-logout-candidate><span class="cand-nav-icon">↪</span>${t("logout")}</button></div></aside><div class="cand-main"><header class="cand-topbar"><div class="cand-mobile-head"><button class="cand-icon-btn" data-menu aria-label="${t("menu")}" aria-expanded="false">☰</button><a class="cand-brand-mark" href="${href(routes.dashboard)}">W</a></div><div class="cand-top-actions"><select class="cand-select" data-language aria-label="${t("language")}"><option value="fr">FR</option><option value="en">EN</option><option value="ar">AR</option></select><a class="cand-icon-btn" href="${href(routes.notifications)}" aria-label="${t("notifications")}">♢<span class="cand-badge" data-notification-count hidden>0</span></a><a class="cand-user" href="${href(routes.profile)}"><span class="cand-avatar" data-avatar>?</span><span class="cand-user-copy"><strong data-user-name>—</strong><small data-user-email>—</small></span></a></div></header><main class="cand-content" id="candidate-content"><div class="cand-loading" role="status"><div><div class="cand-skeleton"></div><div class="cand-skeleton"></div><p>${t("loading")}</p></div></div></main></div><nav class="cand-bottom-nav" aria-label="${t("menu")}">${[
       ["dashboard", "⌂"],
@@ -80,6 +81,8 @@
       .join(
         "",
       )}<button data-menu><span class="cand-nav-icon">☰</span><span>${t("menu")}</span></button></nav></div>`;
+    const brandName = document.querySelector(".cand-brand span:last-child");
+    if (brandName) brandName.textContent = siteName;
     bindShell();
   }
   function bindShell() {
@@ -252,7 +255,7 @@
         t(savedOnly ? "noSavedHelp" : "searchJobs"),
       ) +
       (!savedOnly
-        ? `<form class="cand-toolbar" data-search-form><input class="cand-input" name="q" placeholder="${t("keyword")}"><input class="cand-input" name="city" placeholder="${t("city")}"><input class="cand-input" name="domain" placeholder="${t("domain")}"><select class="cand-select" name="contract"><option value="">${t("contract")}</option><option>CDI</option><option>CDD</option><option>Stage</option><option>Freelance</option></select><button class="wc-button wc-button--primary">${t("search")}</button></form>`
+        ? `<form class="cand-toolbar" data-search-form><input class="cand-input" name="q" placeholder="${t("keyword")}"><input class="cand-input" name="city" placeholder="${t("city")}"><input class="cand-input" name="domain" placeholder="${t("domain")}"><select class="cand-select" name="contract"><option value="">${t("contract")}</option>${(window.WorkcruteConfig?.jobs?.contractTypes||[]).map(value=>`<option>${escape(value)}</option>`).join("")}</select><button class="wc-button wc-button--primary">${t("search")}</button></form>`
         : "") +
       `<div class="cand-grid" data-job-list><div class="cand-loading">${t("loading")}</div></div>`;
     const load = async (form) => {
@@ -569,6 +572,7 @@
   }
   async function documents() {
     const main = document.querySelector("main");
+    const documentRules = window.WorkcruteConfig?.documents || { extensions:["pdf","doc","docx"], maxSizeMb:8, types:["cv","cover_letter","diploma","certificate","portfolio","other"] };
     main.innerHTML =
       page(
         t("documents"),
@@ -588,6 +592,10 @@
           "",
         )}</select></div><div class="cand-field"><label>${t("documents")}</label><input class="cand-input" type="file" name="file" accept=".pdf,.doc,.docx" required></div></div><p class="cand-status" data-status>${t("uploadRules")}</p><button class="wc-button wc-button--primary">${t("upload")}</button></form></section><div class="cand-grid cand-grid--cards" style="margin-top:20px" data-doc-list><div class="cand-loading">${t("loading")}</div></div>`;
     const wrap = document.querySelector("[data-upload-wrap]");
+    const kindSelect = wrap.querySelector('[name="kind"]'), fileInput = wrap.querySelector('[name="file"]'), ruleText = wrap.querySelector('[data-status]');
+    [...kindSelect.options].forEach((option) => { if (!documentRules.types.includes(option.value)) option.remove(); });
+    fileInput.accept = documentRules.extensions.map((extension) => `.${extension}`).join(",");
+    ruleText.textContent = `${documentRules.extensions.join(", ").toUpperCase()} · ${documentRules.maxSizeMb} Mo max.`;
     document
       .querySelector("[data-show-upload]")
       .addEventListener("click", () => {
@@ -972,6 +980,7 @@
     }
   }
   async function init() {
+    await window.WorkcruteConfigReady;
     I.apply();
     shell();
     try {

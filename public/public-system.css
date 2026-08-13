@@ -336,3 +336,4 @@ html[dir="rtl"] .wc-message--user { border-radius: 12px 12px 12px 3px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+.wc-maintenance{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:24px;background:rgba(245,248,247,.97);text-align:center}.wc-maintenance .wc-card{max-width:620px;width:100%}.wc-maintenance h1{margin:12px 0}

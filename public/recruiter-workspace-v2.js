@@ -66,6 +66,7 @@
     link = ([k, i]) =>
       `<a href="${href(routes[k])}" ${current(k) ? 'aria-current="page"' : ""}><span class="rec-nav-icon">${i}</span><span>${t(k)}</span></a>`;
   function shell() {
+    const siteName = window.WorkcruteConfig?.general?.siteName || "Workcrute";
     document.body.className = "recruiter-body";
     document.body.innerHTML = `<a class="wc-skip-link" href="#rec-content">${t("viewAll")}</a><aside class="rec-sidebar"><a class="rec-brand" href="${href(routes.dashboard)}"><span class="rec-brand-mark">W</span>Workcrute</a><p class="rec-workspace-label">Recruitment workspace</p><nav class="rec-nav">${nav.map(link).join("")}</nav><div class="rec-sidebar-foot"><button class="rec-logout" data-logout-rec><span class="rec-nav-icon">↪</span>${t("logout")}</button></div></aside><div class="rec-main"><header class="rec-topbar"><div class="rec-mobile-head"><button class="rec-icon" data-menu aria-label="${t("menu")}">☰</button><span class="rec-brand-mark">W</span></div><div class="rec-top-actions"><select class="rec-select" data-language aria-label="${t("language")}"><option value="fr">FR</option><option value="en">EN</option><option value="ar">AR</option></select><a class="rec-icon" href="${href(routes.notifications)}" aria-label="${t("notifications")}">♢<span class="rec-badge" data-badge hidden>0</span></a><a class="rec-user" href="${href(routes.company)}"><span class="rec-avatar" data-avatar>?</span><span class="rec-user-copy"><strong data-name>—</strong><small data-company>—</small></span></a></div></header><main class="rec-content" id="rec-content"><div class="rec-loading"><div><div class="rec-skeleton"></div><div class="rec-skeleton"></div><p>${t("loading")}</p></div></div></main></div><nav class="rec-bottom">${[
       ["dashboard", "⌂"],
@@ -78,6 +79,8 @@
         "",
       )}<button data-menu><span class="rec-nav-icon">☰</span><span>${t("menu")}</span></button></nav>`;
     document.querySelector(".rec-workspace-label").textContent = t("workspace");
+    const brand = document.querySelector(".rec-brand");
+    if (brand?.lastChild) brand.lastChild.textContent = siteName;
     bindShell();
   }
   function bindShell() {
@@ -220,7 +223,7 @@
   const jobFields = () => [
     {
       key: "general",
-      html: `<div class="rec-form-grid"><div class="rec-field"><label>${t("title")} *</label><input class="rec-input" name="title" required maxlength="160"></div><div class="rec-field"><label>${t("sector")} *</label><input class="rec-input" name="domain" required maxlength="120"></div><div class="rec-field"><label>${t("city")} *</label><input class="rec-input" name="city" required></div><div class="rec-field"><label>${t("country")}</label><input class="rec-input" name="country" value="Maroc"></div><div class="rec-field"><label>${t("contract")} *</label><select class="rec-select" name="contractType" required><option value="">—</option><option>CDI</option><option>CDD</option><option>Stage</option><option>Freelance</option></select></div><div class="rec-field"><label>${t("workMode")} *</label><select class="rec-select" name="workMode" required><option value="onsite">${t("onsite")}</option><option value="hybrid">${t("hybrid")}</option><option value="remote">${t("remote")}</option></select></div></div>`,
+      html: `<div class="rec-form-grid"><div class="rec-field"><label>${t("title")} *</label><input class="rec-input" name="title" required maxlength="160"></div><div class="rec-field"><label>${t("sector")} *</label><select class="rec-select" name="domain" required><option value="">—</option>${(window.WorkcruteConfig?.jobs?.sectors||[]).map(value=>`<option>${esc(value)}</option>`).join("")}</select></div><div class="rec-field"><label>${t("city")} *</label><input class="rec-input" name="city" required></div><div class="rec-field"><label>${t("country")}</label><input class="rec-input" name="country" value="Maroc"></div><div class="rec-field"><label>${t("contract")} *</label><select class="rec-select" name="contractType" required><option value="">—</option>${(window.WorkcruteConfig?.jobs?.contractTypes||[]).map(value=>`<option>${esc(value)}</option>`).join("")}</select></div><div class="rec-field"><label>${t("workMode")} *</label><select class="rec-select" name="workMode" required><option value="onsite">${t("onsite")}</option><option value="hybrid">${t("hybrid")}</option><option value="remote">${t("remote")}</option></select></div></div>`,
     },
     {
       key: "description",
@@ -863,6 +866,7 @@
     }
   }
   async function init() {
+    await window.WorkcruteConfigReady;
     I.apply();
     shell();
     try {

@@ -8,6 +8,11 @@ import {
   normalizeApiError,
   recordAppError,
 } from "./error-system.js";
+import {
+  getPlatformSettings,
+  savePlatformSection,
+  platformCanonicalValues,
+} from "./platform-settings.js";
 
 const encoder = new TextEncoder();
 const fileTypes = new Map([
@@ -278,6 +283,11 @@ async function register(request, env) {
     first = clean(body.firstName, 80),
     last = clean(body.lastName, 80),
     phone = clean(body.phone, 20).replace(/[\s.-]/g, "");
+  const platform = await getPlatformSettings(env);
+  if (role === "candidate" && !platform.registrations.candidateEnabled)
+    return bad("Les inscriptions candidat sont temporairement fermées.", 403);
+  if (role === "recruiter" && !platform.registrations.recruiterEnabled)
+    return bad("Les inscriptions recruteur sont temporairement fermées.", 403);
   if (
     !role ||
     !first ||
@@ -317,8 +327,8 @@ async function register(request, env) {
   };
   await env.DB.batch([
     env.DB.prepare(
-      "INSERT INTO users(id,email,password_hash,password_salt,role) VALUES(?,?,?,?,?)",
-    ).bind(id, email, hash, salt, role),
+      "INSERT INTO users(id,email,password_hash,password_salt,role,email_verified_at) VALUES(?,?,?,?,?,?)",
+    ).bind(id, email, hash, salt, role, platform.registrations.emailVerificationRequired ? null : now()),
     role === "candidate"
       ? env.DB.prepare(
           "INSERT INTO candidate_profiles(user_id,first_name,last_name,phone,city,region,preferred_language,professional_title,introduction,availability,skills_json,preferences_json,questionnaire_answers) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -366,11 +376,13 @@ async function register(request, env) {
       "Complétez votre profil pour améliorer vos opportunités.",
     ),
   ]);
-  const verify = await emailToken(env, id, "verify_email");
-  try {
-    await sendEmail(env, { to: email, template: "verify_email", token: verify });
-  } catch (error) {
-    console.error(JSON.stringify({ event: "verification_email_failed", userId: id, error: String(error) }));
+  if (platform.registrations.emailVerificationRequired) {
+    const verify = await emailToken(env, id, "verify_email");
+    try {
+      await sendEmail(env, { to: email, template: "verify_email", token: verify });
+    } catch (error) {
+      console.error(JSON.stringify({ event: "verification_email_failed", userId: id, error: String(error) }));
+    }
   }
   const session = await createSession(env, id);
   await platformEvent(
@@ -394,7 +406,7 @@ async function register(request, env) {
     console.error(JSON.stringify({ event: "admin_email_enqueue_failed", resourceType: "user", resourceId: id, error: String(error) }));
   }
   return json(
-    { user: { id, email, role }, emailVerificationPending: true },
+    { user: { id, email, role }, emailVerificationPending: platform.registrations.emailVerificationRequired, cvRequired: role === "candidate" && platform.registrations.cvRequired },
     201,
     { "set-cookie": cookie("wc_session", session, 2592000) },
   );
@@ -621,13 +633,17 @@ async function documents(request, env, path) {
     const form = await request.formData(),
       file = form.get("file"),
       kind = String(form.get("kind") || "");
-    if (!(file instanceof File) || !documentKinds.includes(kind))
+    const platform = await getPlatformSettings(env), rules = platform.documents;
+    if (!(file instanceof File) || !documentKinds.includes(kind) || !rules.types.includes(kind))
       return bad("Document invalide.");
     const ext = fileTypes.get(file.type);
-    if (!ext || !file.name.toLowerCase().endsWith("." + ext))
-      return bad("Format invalide : seuls les fichiers PDF, DOC et DOCX sont acceptés.", 415);
-    if (!file.size || file.size > 8 * 1024 * 1024)
-      return bad("Fichier trop gros : la taille maximale est de 8 Mo.", 413);
+    if (!ext || !rules.extensions.includes(ext) || !file.name.toLowerCase().endsWith("." + ext))
+      return bad(`Format invalide : extensions autorisées ${rules.extensions.join(", ").toUpperCase()}.`, 415);
+    if (!file.size || file.size > rules.maxSizeMb * 1024 * 1024)
+      return bad(`Fichier trop gros : la taille maximale est de ${rules.maxSizeMb} Mo.`, 413);
+    const total = await env.DB.prepare("SELECT COUNT(*) total FROM documents WHERE user_id=? AND deleted_at IS NULL").bind(user.id).first();
+    if (Number(total?.total || 0) >= rules.maxCount)
+      return bad(`Vous avez atteint la limite de ${rules.maxCount} documents.`, 409);
     const id = crypto.randomUUID(),
       key = `private/${user.id}/${id}.${ext}`;
     const count = await env.DB.prepare(
@@ -759,7 +775,7 @@ async function jobs(request, env, path) {
         (user?.role === "candidate"
           ? ",EXISTS(SELECT 1 FROM saved_jobs s WHERE s.job_offer_id=j.id AND s.user_id=?) is_saved"
           : "") +
-        " FROM job_offers j LEFT JOIN companies c ON c.id=j.company_id WHERE j.status='published'",
+        " FROM job_offers j LEFT JOIN companies c ON c.id=j.company_id WHERE j.status='published' AND (j.deadline_at IS NULL OR j.deadline_at>=CURRENT_TIMESTAMP)",
       params = user?.role === "candidate" ? [user.id] : [];
     for (const [value, clause, count] of [
       [
@@ -1114,6 +1130,18 @@ async function applications(request, env, path) {
         .bind(jobId)
         .first();
     if (!job) return bad("Offre introuvable.", 404);
+    const platform = await getPlatformSettings(env), appRules = platform.applications.rules;
+    if (appRules.coverLetterRequired && !clean(body.coverLetter, 3000))
+      return bad("Une lettre de motivation est obligatoire.");
+    if (platform.registrations.cvRequired || appRules.cvRequired) {
+      const cv = await env.DB.prepare("SELECT id FROM documents WHERE user_id=? AND kind='cv' AND deleted_at IS NULL LIMIT 1").bind(user.id).first();
+      if (!cv) return bad("Ajoutez un CV avant de postuler.", 409);
+    }
+    if (appRules.completeProfileRequired) {
+      const profile = await env.DB.prepare("SELECT professional_title,city,skills_json FROM candidate_profiles WHERE user_id=?").bind(user.id).first();
+      if (!profile?.professional_title || !profile?.city || !parseStored(profile.skills_json, []).length)
+        return bad("Complétez votre profil avant de postuler.", 409);
+    }
     try {
       const id = crypto.randomUUID(),
         answers =
@@ -1185,6 +1213,7 @@ async function applications(request, env, path) {
     .first();
   if (!application) return bad("Candidature introuvable.", 404);
   if (request.method === "GET") {
+    const platform = await getPlatformSettings(env);
     const { results = [] } = await env.DB.prepare(
       "SELECT status,created_at FROM application_status_history WHERE application_id=? ORDER BY created_at",
     )
@@ -1193,6 +1222,9 @@ async function applications(request, env, path) {
     return json({ application, timeline: results });
   }
   if (request.method === "PATCH") {
+    const platform = await getPlatformSettings(env);
+    if (!platform.applications.withdrawalEnabled)
+      return bad("Le retrait des candidatures est désactivé.", 403);
     if (application.status === "accepted" || application.status === "rejected")
       return bad("Cette candidature ne peut plus être retirée.");
     await env.DB.batch([
@@ -1438,10 +1470,15 @@ async function recruiterOffer(request, env, path) {
     return json({ job: { id: newId, status: "draft" } }, 201);
   }
   if (action === "publish" && request.method === "POST") {
+    const platform = await getPlatformSettings(env);
+    const values = { title:job.title, domain:job.domain, description:job.description, contractType:job.contract_type, city:job.city, workMode:job.work_mode, skills:parseStored(job.required_skills,[]), experienceLevel:job.experience_level, educationLevel:job.education_level, salary:job.salary_min || job.salary_max };
+    if (platform.jobs.requiredFields.some((field) => !values[field] || (Array.isArray(values[field]) && !values[field].length)))
+      return bad("Complétez les champs obligatoires avant publication.");
+    if (!platform.jobs.contractTypes.includes(job.contract_type)) return bad("Type de contrat non autorisé.");
     await env.DB.prepare(
-      "UPDATE job_offers SET status='published',published_at=COALESCE(published_at,CURRENT_TIMESTAMP),updated_at=CURRENT_TIMESTAMP WHERE id=?",
+      "UPDATE job_offers SET status='published',published_at=COALESCE(published_at,CURRENT_TIMESTAMP),deadline_at=COALESCE(deadline_at,datetime('now',?)),updated_at=CURRENT_TIMESTAMP WHERE id=?",
     )
-      .bind(id)
+      .bind(`+${platform.jobs.publicationDays} days`, id)
       .run();
     await audit(env, user, "job_published", "job_offer", id);
     return json({ ok: true });
@@ -1468,11 +1505,10 @@ async function saveRecruiterOffer(request, env, user, id = null) {
     city = clean(body.city, 120),
     mode = clean(body.workMode, 40),
     status = jobStatuses.includes(body.status) ? body.status : "draft";
-  if (
-    status === "published" &&
-    (!title || !domain || !description || !contract || !city || !mode)
-  )
+  const platform = await getPlatformSettings(env), fields = { title, domain, description, contractType: contract, city, workMode: mode, skills: list(body.skills), experienceLevel: clean(body.experienceLevel, 80), educationLevel: clean(body.educationLevel, 80), salary: body.salaryMin || body.salaryMax };
+  if (status === "published" && platform.jobs.requiredFields.some((field) => !fields[field] || (Array.isArray(fields[field]) && !fields[field].length)))
     return bad("Complétez les champs obligatoires avant publication.");
+  if (contract && !platform.jobs.contractTypes.includes(contract)) return bad("Type de contrat non autorisé.");
   let company = await env.DB.prepare(
     "SELECT id FROM companies WHERE owner_user_id=?",
   )
@@ -1772,7 +1808,8 @@ async function recruiterQuestions(request, env, path) {
   }
   return bad("Action non prise en charge.", 405);
 }
-function matching(job, candidate) {
+function matching(job, candidate, settings) {
+  if (!settings?.enabled) return { score: null, breakdown: [], recommended: false };
   const jobSkills = parseStored(job.required_skills, []).map((x) =>
       String(x).toLowerCase(),
     ),
@@ -1780,35 +1817,39 @@ function matching(job, candidate) {
       String(x).toLowerCase(),
     ),
     breakdown = [],
-    push = (key, score, weight) => breakdown.push({ key, score, weight });
+    push = (key, score) => breakdown.push({ key, score, weight: Number(settings.weights?.[key] || 0) });
   if (jobSkills.length && skills.length) {
     const hits = jobSkills.filter((x) =>
       skills.some((y) => y.includes(x) || x.includes(y)),
     ).length;
-    push("skills", Math.round((hits / jobSkills.length) * 100), 45);
+    push("skills", Math.round((hits / jobSkills.length) * 100));
   }
   const jobCity = job.job_city || job.city;
   const candidateCity = candidate.candidate_city || candidate.city;
   if (jobCity && candidateCity)
     push(
       "location",
-      jobCity.toLowerCase() === candidateCity.toLowerCase() ? 100 : 35,
-      20,
+      jobCity.toLowerCase() === candidateCity.toLowerCase() ? 100 : 0,
     );
   if (job.experience_level && parseStored(candidate.experience_json, []).length)
-    push("experience", 70, 15);
+    push("experience", 70);
   if (job.education_level && parseStored(candidate.education_json, []).length)
-    push("education", 70, 10);
-  if (candidate.availability) push("availability", 100, 10);
+    push("education", 70);
+  if (job.contract_type && parseStored(candidate.preferences_json, {}).contract)
+    push("contract", job.contract_type === parseStored(candidate.preferences_json, {}).contract ? 100 : 0);
+  if (candidate.availability) push("availability", 100);
+  const evaluation = parseStored(candidate.questionnaire_evaluation_json, {});
+  if (Number.isFinite(evaluation.score)) push("questionnaire", evaluation.score);
   if (breakdown.length < 2) return { score: null, breakdown: [] };
   const total = breakdown.reduce((sum, x) => sum + x.weight, 0),
     score = Math.round(
       breakdown.reduce((sum, x) => sum + x.score * x.weight, 0) / total,
     );
-  return { score, breakdown };
+  return { score, breakdown, recommended: score >= settings.recommendedThreshold };
 }
 async function recruiterApplications(request, env, path) {
-  const user = await requireUser(request, env, ["recruiter"]);
+  const user = await requireUser(request, env, ["recruiter"]),
+    platform = await getPlatformSettings(env);
   if (path === "/api/recruiter/applications" && request.method === "GET") {
     const url = new URL(request.url),
       jobId = clean(url.searchParams.get("jobId"), 80);
@@ -1878,12 +1919,12 @@ async function recruiterApplications(request, env, path) {
           unmetCriteria: [],
         }),
       },
-      matching: matching(application, application),
+      matching: matching(application, application, platform.matching),
     });
   }
   if (request.method === "PATCH") {
     const body = await request.json().catch(() => ({})),
-      status = applicationStatuses.includes(body.status) ? body.status : null;
+      status = applicationStatuses.includes(body.status) && platform.applications.statuses.includes(body.status) ? body.status : null;
     if (!status) return bad("Statut invalide.");
     await env.DB.batch([
       env.DB.prepare(
@@ -2015,6 +2056,7 @@ async function recruiterInterviews(request, env, path) {
   }
   if (path === "/api/recruiter/interviews" && request.method === "POST") {
     const body = await request.json().catch(() => ({})),
+      platform = await getPlatformSettings(env),
       application = await env.DB.prepare(
         "SELECT a.id,a.candidate_user_id,j.title FROM applications a JOIN job_offers j ON j.id=a.job_offer_id WHERE a.id=? AND j.recruiter_user_id=?",
       )
@@ -2023,7 +2065,7 @@ async function recruiterInterviews(request, env, path) {
     if (
       !application ||
       !clean(body.startsAt, 50) ||
-      !["onsite", "video", "phone"].includes(body.type)
+      !platform.interviews.types.includes(body.type)
     )
       return bad("Informations d’entretien invalides.");
     const id = crypto.randomUUID();
@@ -2036,7 +2078,7 @@ async function recruiterInterviews(request, env, path) {
         application.candidate_user_id,
         user.id,
         body.startsAt,
-        Number(body.duration) || 60,
+        Number(body.duration) || platform.interviews.defaultDurations[body.type],
         body.type,
         clean(body.location, 500) || null,
         clean(body.meetingUrl, 500) || null,
@@ -2077,13 +2119,15 @@ async function recruiterInterviews(request, env, path) {
       ? body.status
       : null;
   if (request.method === "PATCH") {
+    const platform = await getPlatformSettings(env);
+    if (body.type && !platform.interviews.types.includes(body.type)) return bad("Type d’entretien désactivé.");
     await env.DB.prepare(
       "UPDATE interviews SET starts_at=COALESCE(?,starts_at),duration_minutes=COALESCE(?,duration_minutes),interview_type=COALESCE(?,interview_type),location=COALESCE(?,location),meeting_url=COALESCE(?,meeting_url),status=COALESCE(?,status),updated_at=CURRENT_TIMESTAMP WHERE id=? AND recruiter_user_id=?",
     )
       .bind(
         clean(body.startsAt, 50) || null,
         Number(body.duration) || null,
-        ["onsite", "video", "phone"].includes(body.type) ? body.type : null,
+        platform.interviews.types.includes(body.type) ? body.type : null,
         clean(body.location, 500) || null,
         clean(body.meetingUrl, 500) || null,
         status,
@@ -2840,6 +2884,50 @@ async function adminEmailSettings(request, env, path) {
     return json({ ok: true, result: await processAdminEmailOutbox(env, 25) });
   return bad("Action non prise en charge.", 405);
 }
+async function platformSettingsApi(request, env, path) {
+  if (path === "/api/public/config" && request.method === "GET") {
+    const settings = await getPlatformSettings(env);
+    const assets = await env.DB.prepare("SELECT kind,updated_at FROM platform_brand_assets").all();
+    return json({ ...settings, brandAssets: Object.fromEntries((assets.results || []).map((row) => [row.kind, { url: `/api/public/brand/${row.kind}?v=${encodeURIComponent(row.updated_at)}`, updatedAt: row.updated_at }])) }, 200, { "cache-control": "public,max-age=60" });
+  }
+  const brand = path.match(/^\/api\/public\/brand\/(logo|favicon)$/);
+  if (brand && request.method === "GET") {
+    const asset = await env.DB.prepare("SELECT content_type,data,updated_at FROM platform_brand_assets WHERE kind=?").bind(brand[1]).first();
+    if (!asset) return bad("Ressource introuvable.", 404);
+    return new Response(asset.data, { headers: { "content-type": asset.content_type, "cache-control": "public,max-age=86400", etag: `\"${asset.updated_at}\"` } });
+  }
+  const session = await requireAdmin(request, env);
+  if (path === "/api/admin/platform-settings" && request.method === "GET")
+    return json({ settings: await getPlatformSettings(env) });
+  const sectionMatch = path.match(/^\/api\/admin\/platform-settings\/(general|registrations|documents|jobs|applications|interviews|matching|chatbot|maintenance)$/);
+  if (sectionMatch && request.method === "PATCH") {
+    const before = (await getPlatformSettings(env))[sectionMatch[1]], body = await request.json().catch(() => null);
+    let value;
+    try { value = await savePlatformSection(env, sectionMatch[1], body); }
+    catch (error) { return bad(String(error).includes("MATCHING_WEIGHTS_TOTAL") ? "La somme des poids du matching doit être égale à 100." : "Paramètres invalides."); }
+    await adminAudit(env, session.id, "platform_settings_changed", "platform_settings", sectionMatch[1], before, value);
+    await platformEvent(env, "ADMIN_SETTING_CHANGED", "security", null, "platform_settings", sectionMatch[1], { section: sectionMatch[1] });
+    return json({ ok: true, value });
+  }
+  const assetMatch = path.match(/^\/api\/admin\/platform-settings\/brand\/(logo|favicon)$/);
+  if (assetMatch && request.method === "POST") {
+    const form = await request.formData(), file = form.get("file"), kind = assetMatch[1];
+    const allowed = kind === "logo" ? ["image/png", "image/jpeg", "image/webp"] : ["image/png", "image/x-icon", "image/vnd.microsoft.icon"];
+    const max = kind === "logo" ? 512 * 1024 : 128 * 1024;
+    if (!(file instanceof File) || !allowed.includes(file.type) || !file.size || file.size > max)
+      return bad(kind === "logo" ? "Logo invalide (PNG, JPEG ou WebP, 512 Ko maximum)." : "Favicon invalide (PNG ou ICO, 128 Ko maximum).", 415);
+    await env.DB.prepare("INSERT INTO platform_brand_assets(kind,content_type,data,size_bytes,updated_at) VALUES(?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(kind) DO UPDATE SET content_type=excluded.content_type,data=excluded.data,size_bytes=excluded.size_bytes,updated_at=CURRENT_TIMESTAMP").bind(kind, file.type, await file.arrayBuffer(), file.size).run();
+    await adminAudit(env, session.id, "platform_brand_changed", "platform_brand_asset", kind, null, { contentType: file.type, sizeBytes: file.size });
+    return json({ ok: true });
+  }
+  if (assetMatch && request.method === "DELETE") {
+    await env.DB.prepare("DELETE FROM platform_brand_assets WHERE kind=?").bind(assetMatch[1]).run();
+    await adminAudit(env, session.id, "platform_brand_removed", "platform_brand_asset", assetMatch[1]);
+    return new Response(null, { status: 204 });
+  }
+  return bad("Action non prise en charge.", 405);
+}
+
 async function adminErrors(request, env, path) {
   const session = await requireAdmin(request, env);
   if (path === "/api/admin/errors" && request.method === "GET") {
@@ -3812,6 +3900,8 @@ async function publicFaq(request, env, path) {
     return json({ items: results.map(faqForJson) });
   }
   if (path === "/api/chatbot/ask" && request.method === "POST") {
+    const platform = await getPlatformSettings(env);
+    if (!platform.chatbot.enabled) return bad("Le chatbot est temporairement désactivé.", 503);
     const body = await request.json().catch(() => ({})),
       query = clean(body.query, 500),
       language = ["fr", "en", "ar"].includes(body.language)
@@ -3827,7 +3917,7 @@ async function publicFaq(request, env, path) {
           (a, b) => b.score - a.score || b.entry.priority - a.entry.priority,
         ),
       best = ranked[0],
-      matched = Boolean(best && best.score >= 0.43),
+      matched = Boolean(best && best.score >= platform.chatbot.similarityThreshold),
       id = crypto.randomUUID();
     await env.DB.prepare(
       "INSERT INTO chatbot_queries(id,query_text,normalized_query,language,matched,faq_id,category,score) VALUES(?,?,?,?,?,?,?,?)",
@@ -4669,7 +4759,17 @@ export default {
       return new Response(null, { headers: cors(request) });
     try {
       let response;
-      if (path === "/api/public/stats") response = await publicStats(env);
+      const isAdminPath = path.startsWith("/api/admin/");
+      const publicConfigPath = path === "/api/public/config" || path.startsWith("/api/public/brand/");
+      if (!isAdminPath && !publicConfigPath && path.startsWith("/api/")) {
+        const platform = await getPlatformSettings(env);
+        if (platform.maintenance.enabled)
+          response = json({ code: "MAINTENANCE", userMessage: platform.maintenance.message.fr }, 503);
+      }
+      if (response) {}
+      else if (publicConfigPath || path === "/api/admin/platform-settings" || path.startsWith("/api/admin/platform-settings/"))
+        response = await platformSettingsApi(request, env, path);
+      else if (path === "/api/public/stats") response = await publicStats(env);
       else if (path === "/api/faq" || path === "/api/chatbot/ask")
         response = await publicFaq(request, env, path);
       else if (path === "/api/auth/register" && request.method === "POST")
@@ -4936,5 +5036,6 @@ export default {
   },
   async scheduled(_controller, env, ctx) {
     ctx.waitUntil(processAdminEmailOutbox(env, 25));
+    ctx.waitUntil(env.DB.prepare("UPDATE job_offers SET status='closed',updated_at=CURRENT_TIMESTAMP WHERE status='published' AND deadline_at IS NOT NULL AND deadline_at<CURRENT_TIMESTAMP").run());
   },
 };

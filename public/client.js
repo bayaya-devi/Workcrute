@@ -9,6 +9,21 @@
     if (!response.ok) { const error=window.WorkcruteErrors?.apiError(response,body||{})||Object.assign(new Error(body?.userMessage||body?.error||"REQUEST_FAILED"),{requestId:body?.requestId,status:response.status,code:body?.code}); if(response.status===401&&!path.startsWith("/api/auth/"))window.WorkcruteErrors?.sessionExpired(); throw error; }
     return body;
   };
+  const applyPlatformConfig = config => {
+    window.WorkcruteConfig = config;
+    const name = config.general?.siteName || "Workcrute";
+    document.title = document.title.replace(/Workcrute/g, name);
+    if (config.brandAssets?.favicon?.url) { let icon=document.querySelector('link[rel="icon"]'); if(!icon){icon=document.createElement("link");icon.rel="icon";document.head.append(icon);} icon.href=config.brandAssets.favicon.url; }
+    if (config.brandAssets?.logo?.url) document.querySelectorAll('img[src*="logo-workrute"],img[data-site-logo]').forEach(img=>img.src=config.brandAssets.logo.url);
+    document.querySelectorAll('select[name="contract"]').forEach(select=>{const current=select.value,first=select.options[0]?.outerHTML||"";select.innerHTML=first+(config.jobs?.contractTypes||[]).map(v=>`<option>${String(v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}</option>`).join("");select.value=current;});
+    const role=document.querySelector("[data-signup]")?.dataset.role;
+    const cvInput=document.querySelector('[data-signup][data-role="candidate"] input[name="cv"]');
+    if(cvInput)cvInput.required=Boolean(config.registrations?.cvRequired);
+    for(const [selector,enabled] of [['a[href*="inscription/demandeur"]',config.registrations?.candidateEnabled],['a[href*="inscription/recruteur"]',config.registrations?.recruiterEnabled]]) if(enabled===false) document.querySelectorAll(selector).forEach(link=>{link.setAttribute("aria-disabled","true");link.addEventListener("click",event=>event.preventDefault());link.style.opacity=".55";});
+    if ((role==="candidate"&&!config.registrations?.candidateEnabled)||(role==="recruiter"&&!config.registrations?.recruiterEnabled)) { const form=document.querySelector("[data-signup]");form?.querySelectorAll("input,select,textarea,button").forEach(x=>x.disabled=true);const error=form?.querySelector(".error");if(error)error.textContent=role==="candidate"?"Les inscriptions candidat sont temporairement fermées.":"Les inscriptions recruteur sont temporairement fermées."; }
+    if (config.maintenance?.enabled && !location.pathname.startsWith("/admin")) { const lang=language(),message=config.maintenance.message?.[lang]||config.maintenance.message?.fr;const overlay=document.createElement("div");overlay.className="wc-maintenance";overlay.setAttribute("role","alert");overlay.innerHTML=`<div class="wc-card wc-card--pad"><strong>${name}</strong><h1>Maintenance</h1><p>${message}</p></div>`;document.body.append(overlay); }
+  };
+  window.WorkcruteConfigReady = api("/api/public/config").then(applyPlatformConfig).catch(()=>null);
   const routeFor = role => role === "recruiter" ? "/recruteur/tableau-de-bord" : role === "admin" ? "/admin/tableau-de-bord" : "/demandeur/tableau-de-bord";
   const language = () => window.workcrutePublicI18n?.getLanguage?.() || document.documentElement.lang || "fr";
   const copy = {
@@ -60,7 +75,8 @@
       if (button.disabled || !signup.reportValidity()) return;
       error.textContent = ""; if (data.password !== data.confirmPassword) { error.textContent = c("passwordMismatch"); signup.elements.confirmPassword?.focus(); return; }
       const files = new FormData(signup);
-      for (const field of ["cv", "letter"]) { const file = files.get(field); if (!file?.size) continue; if (file.size > 8 * 1024 * 1024) { error.textContent = c("fileSize"); signup.elements[field]?.focus(); return; } if (!/\.(pdf|docx?)$/i.test(file.name)) { error.textContent = c("fileType"); signup.elements[field]?.focus(); return; } }
+      const documentRules=window.WorkcruteConfig?.documents||{maxSizeMb:8,extensions:["pdf","doc","docx"]};
+      for (const field of ["cv", "letter"]) { const file = files.get(field); if (!file?.size) continue; if (file.size > documentRules.maxSizeMb * 1024 * 1024) { error.textContent = `${documentRules.maxSizeMb} Mo maximum.`; signup.elements[field]?.focus(); return; } if (!documentRules.extensions.some(ext=>file.name.toLowerCase().endsWith(`.${ext}`))) { error.textContent = `Formats autorisés : ${documentRules.extensions.join(", ").toUpperCase()}.`; signup.elements[field]?.focus(); return; } }
       const idleLabel = button.textContent; setBusy(button, true, c("signupLoading"));
       try {
         const result = await api("/api/auth/register", {method:"POST", body:JSON.stringify({...data, role:signup.dataset.role, acceptedTerms:true})});
