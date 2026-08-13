@@ -1,3 +1,9 @@
+import { FAQ_CATALOG } from "./faq-catalog.js";
+import {
+  enqueueAdminEmail,
+  processAdminEmailOutbox,
+} from "./admin-email.js";
+
 const encoder = new TextEncoder();
 const fileTypes = new Map([
   ["application/pdf", "pdf"],
@@ -219,7 +225,7 @@ async function emailToken(env, userId, purpose) {
 }
 async function sendEmail(env, message) {
   if (env.ENVIRONMENT === "test") return true;
-  if (!env.EMAIL_PROVIDER_API_KEY || !env.EMAIL_FROM) return false;
+  if (!env.EMAIL_FROM) return false;
   const subjects = {
     admin_verification: "Votre code de vérification Workcrute",
     admin_test: "Email administratif Workcrute opérationnel",
@@ -231,6 +237,16 @@ async function sendEmail(env, message) {
     : message.template === "admin_test"
       ? "La messagerie administrative Workcrute est correctement configurée."
       : "Une action de sécurité a été demandée sur votre compte Workcrute.";
+  if (env.EMAIL?.send) {
+    await env.EMAIL.send({
+      from: env.EMAIL_FROM,
+      to: message.to,
+      subject: subjects[message.template] || "Notification Workcrute",
+      text: content,
+    });
+    return true;
+  }
+  if (!env.EMAIL_PROVIDER_API_KEY) return false;
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -278,22 +294,50 @@ async function register(request, env) {
   const id = crypto.randomUUID(),
     salt = token(),
     hash = await hashPassword(body.password, salt);
+  const candidateAnswers =
+    body.questionnaireAnswers && typeof body.questionnaireAnswers === "object"
+      ? body.questionnaireAnswers
+      : {
+          domain: clean(body.domain, 120),
+          contract: clean(body.contract, 80),
+          experience: clean(body.experience, 120),
+          workMode: clean(body.workMode, 80),
+          skills: list(body.skills),
+        };
+  const recruiterAnswers = {
+    recruitmentDomains: list(body.recruitmentDomains),
+    plannedHires: clean(body.plannedHires, 80),
+    hiringDelay: clean(body.hiringDelay, 80),
+    needs: clean(body.recruitmentNeeds, 1000),
+  };
   await env.DB.batch([
     env.DB.prepare(
       "INSERT INTO users(id,email,password_hash,password_salt,role) VALUES(?,?,?,?,?)",
     ).bind(id, email, hash, salt, role),
     role === "candidate"
       ? env.DB.prepare(
-          "INSERT INTO candidate_profiles(user_id,first_name,last_name,phone,preferred_language) VALUES(?,?,?,?,?)",
+          "INSERT INTO candidate_profiles(user_id,first_name,last_name,phone,city,region,preferred_language,professional_title,introduction,availability,skills_json,preferences_json,questionnaire_answers) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
         ).bind(
           id,
           first,
           last,
           phone,
+          clean(body.city, 120) || null,
+          clean(body.region, 120) || null,
           ["fr", "en", "ar"].includes(body.language) ? body.language : "fr",
+          clean(body.professionalTitle || body.jobTitle, 120) || null,
+          clean(body.introduction, 1000) || null,
+          clean(body.availability, 80) || null,
+          JSON.stringify(list(body.skills)),
+          JSON.stringify({
+            domain: candidateAnswers.domain || null,
+            contract: candidateAnswers.contract || null,
+            workMode: candidateAnswers.workMode || null,
+          }),
+          JSON.stringify(candidateAnswers),
         )
       : env.DB.prepare(
-          "INSERT INTO recruiter_profiles(user_id,first_name,last_name,phone,company_name,job_title) VALUES(?,?,?,?,?,?)",
+          "INSERT INTO recruiter_profiles(user_id,first_name,last_name,phone,company_name,job_title,company_sector,company_size,city,website,questionnaire_answers) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
         ).bind(
           id,
           first,
@@ -301,6 +345,11 @@ async function register(request, env) {
           phone,
           clean(body.companyName, 120) || null,
           clean(body.jobTitle, 120) || null,
+          clean(body.companySector, 120) || null,
+          clean(body.companySize, 80) || null,
+          clean(body.city, 120) || null,
+          clean(body.website, 240) || null,
+          JSON.stringify(recruiterAnswers),
         ),
     env.DB.prepare(
       "INSERT INTO notifications(id,user_id,type,title,body) VALUES(?,?,?,?,?)",
@@ -313,7 +362,11 @@ async function register(request, env) {
     ),
   ]);
   const verify = await emailToken(env, id, "verify_email");
-  await sendEmail(env, { to: email, template: "verify_email", token: verify });
+  try {
+    await sendEmail(env, { to: email, template: "verify_email", token: verify });
+  } catch (error) {
+    console.error(JSON.stringify({ event: "verification_email_failed", userId: id, error: String(error) }));
+  }
   const session = await createSession(env, id);
   await platformEvent(
     env,
@@ -324,6 +377,17 @@ async function register(request, env) {
     id,
     { role },
   );
+  try {
+    await enqueueAdminEmail(
+      env,
+      role === "candidate" ? "new_candidate" : "new_recruiter",
+      "user",
+      id,
+      { delaySeconds: role === "candidate" ? 90 : 10 },
+    );
+  } catch (error) {
+    console.error(JSON.stringify({ event: "admin_email_enqueue_failed", resourceType: "user", resourceId: id, error: String(error) }));
+  }
   return json(
     { user: { id, email, role }, emailVerificationPending: true },
     201,
@@ -1092,6 +1156,13 @@ async function applications(request, env, path) {
         id,
         { jobId },
       );
+      try {
+        await enqueueAdminEmail(env, "new_application", "application", id, {
+          delaySeconds: 5,
+        });
+      } catch (error) {
+        console.error(JSON.stringify({ event: "admin_email_enqueue_failed", resourceType: "application", resourceId: id, error: String(error) }));
+      }
       return json(
         { application: { id, status: "submitted", evaluation } },
         201,
@@ -1454,6 +1525,14 @@ async function saveRecruiterOffer(request, env, user, id = null) {
       .bind(...values, status, id, user.id)
       .run();
     await audit(env, user, "job_updated", "job_offer", id, { status });
+    if (status === "published") {
+      await platformEvent(env, "JOB_PUBLISHED", "jobs", user.id, "job_offer", id);
+      try {
+        await enqueueAdminEmail(env, "new_job", "job_offer", id, { delaySeconds: 5 });
+      } catch (error) {
+        console.error(JSON.stringify({ event: "admin_email_enqueue_failed", resourceType: "job_offer", resourceId: id, error: String(error) }));
+      }
+    }
     return json({ job: { id, status } });
   }
   id = crypto.randomUUID();
@@ -1469,8 +1548,14 @@ async function saveRecruiterOffer(request, env, user, id = null) {
     )
     .run();
   await audit(env, user, "job_created", "job_offer", id, { status });
-  if (status === "published")
+  if (status === "published") {
     await platformEvent(env, "JOB_PUBLISHED", "jobs", user.id, "job_offer", id);
+    try {
+      await enqueueAdminEmail(env, "new_job", "job_offer", id, { delaySeconds: 5 });
+    } catch (error) {
+      console.error(JSON.stringify({ event: "admin_email_enqueue_failed", resourceType: "job_offer", resourceId: id, error: String(error) }));
+    }
+  }
   return json({ job: { id, status } }, 201);
 }
 async function recruiterQuestionnaires(request, env, path) {
@@ -2338,6 +2423,10 @@ async function adminAuthStepOne(request, env) {
         "critical",
         "/admin/journal-activite/",
       );
+    if (blocked)
+      try {
+        await enqueueAdminEmail(env, "suspicious_admin_login", "admin_login", crypto.randomUUID());
+      } catch {}
     return bad("Secret incorrect.", 401);
   }
   const raw = token();
@@ -2380,6 +2469,12 @@ async function adminAuthStepTwo(request, env) {
       false,
       blocked ? "blocked" : "invalid",
     );
+    if (blocked) {
+      await adminNotice(env, "security", "Accès administrateur temporairement bloqué", "Le seuil de tentatives a été atteint à l’étape 2.", "critical", "/admin/journal-activite/");
+      try {
+        await enqueueAdminEmail(env, "suspicious_admin_login", "admin_login", crypto.randomUUID());
+      } catch {}
+    }
     return bad("Secret incorrect.", 401);
   }
   const rawSession = token();
@@ -2674,6 +2769,74 @@ async function adminEmailTest(request, env) {
     null,
   );
   return json({ ok: true });
+}
+const adminEmailFlags = {
+  newCandidate: "email_new_candidate",
+  newRecruiter: "email_new_recruiter",
+  newJob: "email_new_job",
+  newApplication: "email_new_application",
+  criticalError: "email_critical_error",
+  suspiciousAdminLogin: "email_suspicious_admin_login",
+};
+async function adminEmailSettings(request, env, path) {
+  const session = await requireAdmin(request, env);
+  if (path === "/api/admin/email-settings" && request.method === "GET") {
+    const config = await adminConfig(env);
+    const { results = [] } = await env.DB.prepare(
+      "SELECT id,event_type,resource_type,resource_id,recipient,status,attempts,max_attempts,next_attempt_at,last_error,sent_at,created_at FROM admin_email_outbox ORDER BY created_at DESC LIMIT 30",
+    ).all();
+    const { results: deliveryLogs = [] } = await env.DB.prepare(
+      "SELECT outbox_id,event_type,subject,attachment_names_json,body_snapshot_json,success,error_message,created_at FROM admin_email_delivery_logs ORDER BY created_at DESC LIMIT 30",
+    ).all();
+    return json({
+      email: config.primary_email || null,
+      verified: Boolean(config.primary_email_verified_at),
+      attachmentMode: config.email_attachment_mode || "pdf",
+      events: Object.fromEntries(
+        Object.entries(adminEmailFlags).map(([key, column]) => [key, Boolean(config[column])]),
+      ),
+      outbox: results,
+      deliveryLogs,
+    });
+  }
+  if (path === "/api/admin/email-settings" && request.method === "PATCH") {
+    const body = await request.json().catch(() => ({}));
+    const mode = ["none", "pdf", "csv", "both"].includes(body.attachmentMode)
+      ? body.attachmentMode
+      : null;
+    if (!mode) return bad("Format de pièce jointe invalide.");
+    const before = await adminConfig(env);
+    const values = Object.keys(adminEmailFlags).map((key) => body.events?.[key] === false ? 0 : 1);
+    await env.DB.prepare(
+      "UPDATE admin_security_config SET email_attachment_mode=?,email_new_candidate=?,email_new_recruiter=?,email_new_job=?,email_new_application=?,email_critical_error=?,email_suspicious_admin_login=?,updated_at=CURRENT_TIMESTAMP WHERE id=1",
+    ).bind(mode, ...values).run();
+    await adminAudit(env, session.id, "admin_email_settings_changed", "admin_email_settings", "1", {
+      attachmentMode: before.email_attachment_mode,
+      events: Object.fromEntries(Object.entries(adminEmailFlags).map(([key, column]) => [key, Boolean(before[column])])),
+    }, { attachmentMode: mode, events: Object.fromEntries(Object.keys(adminEmailFlags).map((key, index) => [key, Boolean(values[index])])) });
+    await platformEvent(env, "ADMIN_SETTING_CHANGED", "security", null, "admin_email_settings", "1", { setting: "administrative_emails" });
+    return json({ ok: true });
+  }
+  if (path === "/api/admin/email-settings/test" && request.method === "POST") {
+    const config = await adminConfig(env);
+    if (!config?.primary_email_verified_at) return bad("Aucune adresse administrative vérifiée.", 409);
+    const id = await enqueueAdminEmail(env, "test", "admin_email", crypto.randomUUID(), { recipient: config.primary_email });
+    const result = await processAdminEmailOutbox(env, 10);
+    const delivery = await env.DB.prepare("SELECT status,last_error FROM admin_email_outbox WHERE id=?").bind(id).first();
+    await adminAudit(env, session.id, "admin_email_test_sent", "admin_email", id, null, { status: delivery?.status });
+    return delivery?.status === "sent" ? json({ ok: true, result }) : bad("L’email de test a échoué et sera réessayé automatiquement.", 503);
+  }
+  const retry = path.match(/^\/api\/admin\/email-settings\/outbox\/([^/]+)\/retry$/);
+  if (retry && request.method === "POST") {
+    const config = await adminConfig(env);
+    await env.DB.prepare("UPDATE admin_email_outbox SET status='pending',attempts=0,last_error=NULL,next_attempt_at=CURRENT_TIMESTAMP,recipient=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='failed'").bind(config.primary_email, retry[1]).run();
+    const result = await processAdminEmailOutbox(env, 10);
+    await adminAudit(env, session.id, "admin_email_retried", "admin_email", retry[1]);
+    return json({ ok: true, result });
+  }
+  if (path === "/api/admin/email-settings/process" && request.method === "POST")
+    return json({ ok: true, result: await processAdminEmailOutbox(env, 25) });
+  return bad("Action non prise en charge.", 405);
 }
 async function adminNotifications(request, env, path) {
   await requireAdmin(request, env);
@@ -4625,6 +4788,11 @@ export default {
       )
         response = await adminEmailTest(request, env);
       else if (
+        path === "/api/admin/email-settings" ||
+        path.startsWith("/api/admin/email-settings/")
+      )
+        response = await adminEmailSettings(request, env, path);
+      else if (
         path === "/api/admin/notifications" ||
         path.startsWith("/api/admin/notifications/")
       )
@@ -4695,6 +4863,9 @@ export default {
           },
         );
       } catch {}
+      try {
+        await enqueueAdminEmail(env, "critical_error", "route", crypto.randomUUID());
+      } catch {}
       console.error(
         JSON.stringify({
           event: "api_error",
@@ -4706,5 +4877,7 @@ export default {
       return bad("Une erreur est survenue.", 500);
     }
   },
+  async scheduled(_controller, env, ctx) {
+    ctx.waitUntil(processAdminEmailOutbox(env, 25));
+  },
 };
-import { FAQ_CATALOG } from "./faq-catalog.js";
