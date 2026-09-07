@@ -241,11 +241,23 @@ Statut : `VALIDATED`
 
 ## PHASE 11 - Refactorisation
 
-Statut : `IN_PROGRESS`
+Statut : `VALIDATED`
+
+### Realise
+
+- Domaines V2 maintenus dans sept modules backend separes plutot que dans le routeur historique.
+- Architecture et regles d'extension documentees dans `docs/WORKCRUTE_V2_ARCHITECTURE.md`.
+- Commande obsolete `wrangler check` remplacee par un controle de syntaxe, de branchement des modules et de build Worker.
+- Test du depot candidat rendu autonome : il demarre et arrete son propre serveur local.
+
+### Validation
+
+- `npm run check` valide 89 fichiers JavaScript et le bundle Wrangler.
+- Tous les tests V2 d'integration ont ete executes ; la dependance implicite du premier test a ete corrigee puis revalidee.
 
 ## PHASE 12 - Responsive
 
-Statut : `NOT_STARTED`
+Statut : `IN_PROGRESS`
 
 ## PHASE 13 - Performance et accessibilite
 
