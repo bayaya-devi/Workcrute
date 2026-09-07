@@ -26,6 +26,7 @@ import {
   v2Auth,
   v2SessionFor,
 } from "./v2-auth.js";
+import { v2Employee } from "./v2-employee.js";
 
 const encoder = new TextEncoder();
 const fileTypes = new Map([
@@ -4941,6 +4942,8 @@ export default {
         response = await submitV2Applicant(request, env);
       else if (path.startsWith("/api/v2/auth/"))
         response = await v2Auth(request, env, path);
+      else if (path.startsWith("/api/v2/employee/"))
+        response = await v2Employee(request, env, path);
       else if (path === "/api/faq" || path === "/api/chatbot/ask")
         response = await publicFaq(request, env, path);
       else if (path === "/api/auth/register" && request.method === "POST")

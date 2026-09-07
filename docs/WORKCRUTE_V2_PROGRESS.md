@@ -162,11 +162,26 @@ Statut : `VALIDATED`
 
 ## PHASE 06 - Espace employe
 
-Statut : `IN_PROGRESS`
+Statut : `VALIDATED`
+
+### Realise
+
+- Espace protege avec Accueil, Conges, Factures, Parametres et Deconnexion.
+- Accueil limite aux indicateurs utiles et aux derniers elements.
+- Parametre de langue uniquement ; nom, prenom et mot de passe ne sont pas modifiables par l'employe.
+- Preference FR/EN/AR stockee en D1 et reappliquee a chaque connexion.
+- Interface RTL arabe et navigation mobile.
+- Redirection vers la connexion pour toute session absente ou expiree.
+
+### Validation
+
+- Acces overview protege et donnees employee verifies en integration.
+- Changement de langue cote serveur puis relecture depuis le compte verifies.
+- Syntaxe du shell employee et build Worker valides.
 
 ## PHASE 07 - Conges
 
-Statut : `NOT_STARTED`
+Statut : `IN_PROGRESS`
 
 ## PHASE 08 - Consolidation i18n
 
