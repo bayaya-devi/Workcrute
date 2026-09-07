@@ -12,7 +12,7 @@
   const toggle = (open) => { sidebar?.classList.toggle("open", open); if (overlay) overlay.hidden = !open; };
   document.querySelector("[data-admin-menu]")?.addEventListener("click", () => toggle(!sidebar.classList.contains("open")));
   overlay?.addEventListener("click", () => toggle(false));
-  document.querySelector("[data-admin-logout]")?.addEventListener("click", async () => { try { await api("/api/admin/auth/logout", { method:"POST" }); } finally { location.replace("/admin/connexion/"); } });
+  document.querySelector("[data-admin-logout]")?.addEventListener("click", async () => { try { await api("/api/v2/auth/logout", { method:"POST" }).catch(()=>{}); await api("/api/admin/auth/logout", { method:"POST" }).catch(()=>{}); } finally { location.replace("/connexion/"); } });
   const search = document.querySelector("[data-admin-search]");
   const results = document.querySelector("[data-admin-search-results]");
   let timer;

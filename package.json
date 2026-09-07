@@ -20,6 +20,7 @@
     "test:referrals": "node scripts/test-candidate-referrals.mjs",
     "test:v2-applicants": "node scripts/test-v2-applicants.mjs",
     "test:v2-admin-applicants": "node scripts/test-v2-admin-applicants.mjs",
+    "test:v2-auth": "node scripts/test-v2-auth.mjs",
     "seed:demo": "node scripts/seed-demo.js"
   },
   "devDependencies": {

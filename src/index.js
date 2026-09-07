@@ -20,6 +20,11 @@ import {
   submitV2Applicant,
 } from "./v2-applicants.js";
 import { adminV2Applicants } from "./v2-admin-applicants.js";
+import {
+  configureV2Admin,
+  v2Auth,
+  v2SessionFor,
+} from "./v2-auth.js";
 
 const encoder = new TextEncoder();
 const fileTypes = new Map([
@@ -2506,7 +2511,17 @@ async function logAdminAttempt(env, ipHash, step, success, outcome) {
 }
 async function adminFor(request, env) {
   const raw = cookieValue(request, ADMIN_SESSION_COOKIE);
-  if (!raw) return null;
+  if (!raw) {
+    const v2Session = await v2SessionFor(request, env, ["admin"]);
+    return v2Session
+      ? {
+          id: v2Session.session_id,
+          expires_at: v2Session.expires_at,
+          idle_expires_at: v2Session.expires_at,
+          last_seen_at: new Date().toISOString(),
+        }
+      : null;
+  }
   const row = await env.DB.prepare(
     "SELECT * FROM admin_sessions WHERE token_hash=? AND revoked_at IS NULL AND expires_at>? AND idle_expires_at>?",
   )
@@ -4923,6 +4938,8 @@ export default {
       else if (path === "/api/public/stats") response = await publicStats(env);
       else if (path === "/api/v2/applicants")
         response = await submitV2Applicant(request, env);
+      else if (path.startsWith("/api/v2/auth/"))
+        response = await v2Auth(request, env, path);
       else if (path === "/api/faq" || path === "/api/chatbot/ask")
         response = await publicFaq(request, env, path);
       else if (path === "/api/auth/register" && request.method === "POST")
@@ -5051,6 +5068,10 @@ export default {
         response = await adminAuthStepTwo(request, env);
       else if (path === "/api/admin/auth/me" && request.method === "GET")
         response = await adminMe(request, env);
+      else if (path === "/api/admin/v2/account") {
+        await requireAdmin(request, env);
+        response = await configureV2Admin(request, env);
+      }
       else if (
         path === "/api/admin/v2/applicants" ||
         path.startsWith("/api/admin/v2/applicants/")

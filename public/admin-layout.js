@@ -17,6 +17,7 @@
     ["audit", "/admin/journal-activite/", "audit", "≡"],
     ["settings", "/admin/parametres/", "settings", "⚙"],
     ["security", "/admin/securite/", "security", "◈"],
+    ["v2Identity", "/admin/identite-v2/", "v2_identity", "ID"],
   ];
   const nav = links
     .map(

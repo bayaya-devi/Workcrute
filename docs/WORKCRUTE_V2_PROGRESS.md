@@ -121,9 +121,25 @@ Statut : `VALIDATED`
 
 Statut : `IN_PROGRESS`
 
+### Implemente
+
+- Formulaire public unique avec nom, prenom et mot de passe, sans choix de role.
+- Comptes V2 admin/employe, sessions opaques HttpOnly, expiration et revocation.
+- Mots de passe PBKDF2 avec sel individuel ; aucun mot de passe retourne par l'API.
+- Determination du role et de la redirection exclusivement cote serveur.
+- Limitation des tentatives par identite et empreinte reseau.
+- Ecran protege permettant a l'administrateur historique de definir l'unique identite admin V2 sans secret dans Git.
+- Session admin V2 reconnue par le Control Center existant.
+
+### Validation disponible
+
+- Connexion admin V2, redirection, acces au Control Center, deconnexion et rate limit valides en integration locale.
+- La validation employee sera terminee avec la creation employee de la PHASE 05.
+- L'identite admin V2 de production doit etre choisie dans le Control Center ; cela n'empeche pas les phases independantes.
+
 ## PHASE 05 - Administration des employes
 
-Statut : `NOT_STARTED`
+Statut : `IN_PROGRESS`
 
 ## PHASE 06 - Espace employe
 
