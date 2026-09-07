@@ -3,6 +3,12 @@
   let faq = window.workcruteFaqKnowledge || [];
   const root = location.pathname.startsWith("/Workcrute/") ? "/Workcrute" : "";
   const href = (path) => `${root}${path === "/" ? "/" : path}`;
+  const route = location.pathname.slice(root.length).replace(/\/+$/, "") || "/";
+  const legacyPublicRoute = /^\/(?:offres|candidats|recruteurs|inscription|demandeur|recruteur)(?:\/|$)/.test(route);
+  if (legacyPublicRoute || route.startsWith("/mot-de-passe-oublie")) {
+    location.replace(href(route.startsWith("/mot-de-passe-oublie") ? "/connexion/" : "/"));
+    return;
+  }
   const escapeHtml = (value) =>
     String(value ?? "").replace(
       /[&<>'"]/g,

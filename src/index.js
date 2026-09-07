@@ -28,6 +28,7 @@ import {
 } from "./v2-auth.js";
 import { v2Employee } from "./v2-employee.js";
 import { v2Leave } from "./v2-leave.js";
+import { V2_PUBLIC_FAQ } from "./v2-faq.js";
 
 const encoder = new TextEncoder();
 const fileTypes = new Map([
@@ -4061,12 +4062,8 @@ function faqForJson(row) {
   };
 }
 async function publicFaq(request, env, path) {
-  await ensureFaqSeed(env);
   if (path === "/api/faq" && request.method === "GET") {
-    const { results = [] } = await env.DB.prepare(
-      "SELECT * FROM faq_entries WHERE is_active=1 ORDER BY priority DESC,created_at",
-    ).all();
-    return json({ items: results.map(faqForJson) });
+    return json({ items: V2_PUBLIC_FAQ.map(faqForJson) });
   }
   if (path === "/api/chatbot/ask" && request.method === "POST") {
     const platform = await getPlatformSettings(env);
@@ -4077,10 +4074,7 @@ async function publicFaq(request, env, path) {
         ? body.language
         : "fr";
     if (!query) return bad("Question obligatoire.");
-    const { results = [] } = await env.DB.prepare(
-        "SELECT * FROM faq_entries WHERE is_active=1",
-      ).all(),
-      ranked = results
+    const ranked = V2_PUBLIC_FAQ
         .map((entry) => ({ entry, score: faqScore(entry, query, language) }))
         .sort(
           (a, b) => b.score - a.score || b.entry.priority - a.entry.priority,
@@ -4097,7 +4091,7 @@ async function publicFaq(request, env, path) {
         normalizeFaq(query),
         language,
         matched ? 1 : 0,
-        matched ? best.entry.id : null,
+        null,
         matched ? best.entry.category : null,
         best?.score || 0,
       )
@@ -4950,7 +4944,7 @@ export default {
       else if (path === "/api/faq" || path === "/api/chatbot/ask")
         response = await publicFaq(request, env, path);
       else if (path === "/api/auth/register" && request.method === "POST")
-        response = await register(request, env);
+        response = json({ code: "LEGACY_REGISTRATION_CLOSED", userMessage: "Le dépôt de candidature se fait sans compte depuis la page d’accueil." }, 410);
       else if (path === "/api/auth/login" && request.method === "POST")
         response = await login(request, env);
       else if (path === "/api/auth/logout" && request.method === "POST") {

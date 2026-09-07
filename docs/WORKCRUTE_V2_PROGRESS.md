@@ -224,11 +224,24 @@ Le modele de facture reel, indispensable pour reproduire fidelement sa structure
 
 ## PHASE 10 - Retrait de l'ancien modele
 
-Statut : `IN_PROGRESS`
+Statut : `VALIDATED`
+
+### Realise
+
+- Anciennes routes publiques redirigees vers l'accueil ou la connexion sur Cloudflare Pages et GitHub Pages.
+- Ancienne creation de compte fermee cote serveur avec un statut HTTP 410 explicite.
+- Navigation du Control Center limitee aux postulants, employes, conges et fonctions systeme utiles.
+- FAQ et chatbot publics remplaces par un corpus V2 FR/EN/AR coherent avec le depot de CV sans compte et l'espace employe.
+- Donnees historiques conservees en base ; aucun effacement destructif n'a ete effectue.
+
+### Validation
+
+- Integration locale de la FAQ, du chatbot et de la fermeture de l'inscription historique.
+- Verification de syntaxe des scripts publics, admin et Worker.
 
 ## PHASE 11 - Refactorisation
 
-Statut : `NOT_STARTED`
+Statut : `IN_PROGRESS`
 
 ## PHASE 12 - Responsive
 
