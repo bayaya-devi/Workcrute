@@ -1,0 +1,8 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Congés | Workcrute</title><link rel="stylesheet" href="../../admin-system.css"></head>
+<body class="admin-body" data-admin-page="leave"><template data-admin-content>
+  <header class="adm-head"><div><span class="adm-kicker">Gestion RH</span><h1>Congés</h1><p>Traitez les demandes et configurez les jours fériés exclus du calcul.</p></div></header>
+  <section class="adm-card adm-v2-toolbar"><form data-leave-filter><label><span>Statut</span><select name="status"><option value="">Tous</option><option value="pending">En attente</option><option value="approved">Approuvée</option><option value="refused">Refusée</option><option value="cancelled">Annulée</option></select></label><button class="adm-button primary">Filtrer</button></form></section>
+  <div class="adm-leave-layout"><section class="adm-card adm-v2-list"><div class="adm-list-head"><h2>Demandes</h2></div><div data-admin-leave><div class="adm-loading">Chargement…</div></div></section>
+  <section class="adm-card adm-holidays"><h2>Jours fériés</h2><form data-holiday-form><label>Date<input type="date" name="date" required></label><label>Libellé<input name="label" required maxlength="120"></label><button class="adm-button primary">Ajouter</button></form><div data-holidays></div></section></div>
+  <div class="adm-toast" data-leave-toast hidden></div>
+</template><script src="../../admin-layout.js"></script><script src="../../admin-i18n.js"></script><script src="../../admin-control-center.js"></script><script src="../../admin-v2-leave.js"></script></body></html>

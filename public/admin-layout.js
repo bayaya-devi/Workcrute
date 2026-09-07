@@ -6,6 +6,7 @@
     ["activity", "/admin/journal-activite/", "activity", "↻"],
     ["applicants", "/admin/postulants/", "applicants", "♙"],
     ["employees", "/admin/employes/", "employees", "♜"],
+    ["leave", "/admin/conges/", "leave", "◷"],
     ["companies", "/admin/entreprises/", "companies", "▦"],
     ["jobs", "/admin/offres/", "jobs", "▤"],
     ["applications", "/admin/candidatures/", "applications", "✓"],

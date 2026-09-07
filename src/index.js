@@ -27,6 +27,7 @@ import {
   v2SessionFor,
 } from "./v2-auth.js";
 import { v2Employee } from "./v2-employee.js";
+import { v2Leave } from "./v2-leave.js";
 
 const encoder = new TextEncoder();
 const fileTypes = new Map([
@@ -4942,6 +4943,8 @@ export default {
         response = await submitV2Applicant(request, env);
       else if (path.startsWith("/api/v2/auth/"))
         response = await v2Auth(request, env, path);
+      else if (path.startsWith("/api/v2/employee/leave"))
+        response = await v2Leave(request, env, path);
       else if (path.startsWith("/api/v2/employee/"))
         response = await v2Employee(request, env, path);
       else if (path === "/api/faq" || path === "/api/chatbot/ask")
@@ -5089,6 +5092,15 @@ export default {
       ) {
         await requireAdmin(request, env);
         response = await adminV2Employees(request, env, path);
+      }
+      else if (
+        path === "/api/admin/v2/leave" ||
+        path.startsWith("/api/admin/v2/leave/") ||
+        path === "/api/admin/v2/holidays" ||
+        path.startsWith("/api/admin/v2/holidays/")
+      ) {
+        await requireAdmin(request, env);
+        response = await v2Leave(request, env, path, true);
       }
       else if (path === "/api/admin/auth/logout" && request.method === "POST")
         response = await adminLogout(request, env);

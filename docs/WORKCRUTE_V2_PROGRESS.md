@@ -181,11 +181,27 @@ Statut : `VALIDATED`
 
 ## PHASE 07 - Conges
 
-Statut : `IN_PROGRESS`
+Statut : `VALIDATED`
+
+### Realise
+
+- Solde annuel centralise a 21 jours ouvrables, sans report entre annees.
+- Exclusion samedi, dimanche et jours feries configures par l'administrateur.
+- Depot, consultation et annulation d'une demande en attente cote employe.
+- Detection des chevauchements et controle du solde cote serveur.
+- Approbation ou refus admin avec commentaire visible par l'employe.
+- Recalcul autoritaire des jours et du solde au moment de la decision.
+- Historique et indicateurs integres a l'accueil employe.
+
+### Validation
+
+- Test d'integration complet avec une periode traversant un week-end et un jour ferie : 2 jours calcules.
+- Chevauchement refuse, approbation admin, solde passe de 21 a 19 et commentaire restitue a l'employe.
+- Migration `0021_v2_leave.sql` appliquee localement.
 
 ## PHASE 08 - Consolidation i18n
 
-Statut : `NOT_STARTED`
+Statut : `IN_PROGRESS`
 
 ## PHASE 09 - Facturation
 
