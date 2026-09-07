@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Postulants | Workcrute</title>
+  <link rel="stylesheet" href="../../admin-system.css">
+</head>
+<body class="admin-body" data-admin-page="applicants">
+  <template data-admin-content>
+    <header class="adm-head">
+      <div><span class="adm-kicker" data-v2a-i18n="kicker">Candidatures sans compte</span><h1 data-v2a-i18n="title">Postulants</h1><p data-v2a-i18n="subtitle">Étudiez les dossiers transmis depuis le site public.</p></div>
+    </header>
+    <section class="adm-v2-stats" data-v2-stats aria-label="Statistiques"></section>
+    <section class="adm-card adm-v2-toolbar">
+      <form data-v2-filters>
+        <label><span data-v2a-i18n="search">Rechercher</span><input name="q" data-v2a-placeholder="search_placeholder" placeholder="Nom, e-mail, métier ou référence"></label>
+        <label><span data-v2a-i18n="status">Statut</span><select name="status" data-status-filter></select></label>
+        <button class="adm-button primary" type="submit" data-v2a-i18n="filter">Filtrer</button>
+      </form>
+    </section>
+    <section class="adm-card adm-v2-list">
+      <div class="adm-list-head"><p data-v2-count aria-live="polite"></p></div>
+      <div data-v2-content aria-live="polite"><div class="adm-loading">Chargement…</div></div>
+      <nav class="adm-pagination" data-v2-pagination aria-label="Pagination"></nav>
+    </section>
+    <dialog class="adm-dialog adm-v2-dialog" data-v2-dialog>
+      <div class="adm-dialog-shell">
+        <header><div><span class="adm-kicker" data-v2-reference></span><h2 data-v2-name></h2></div><button class="adm-icon-btn" type="button" data-v2-close aria-label="Fermer">×</button></header>
+        <div class="adm-dialog-body" data-v2-detail></div>
+      </div>
+    </dialog>
+    <div class="adm-toast" data-v2-toast role="status" aria-live="polite" hidden></div>
+  </template>
+  <script src="../../admin-layout.js"></script>
+  <script src="../../admin-i18n.js"></script>
+  <script src="../../admin-control-center.js"></script>
+  <script src="../../admin-v2-applicants.js"></script>
+</body>
+</html>

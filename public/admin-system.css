@@ -1605,3 +1605,32 @@ html[dir="rtl"] .adm-event {
     grid-column: 1/-1;
   }
 }
+.adm-v2-stats { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-block-end:20px }
+.adm-v2-stats article { display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px;background:#fff;border:1px solid var(--adm-border,#dbe4f0);border-radius:8px }
+.adm-v2-stats span { color:#64748b;font-size:13px;font-weight:700 }
+.adm-v2-stats strong { color:#10233f;font-size:24px }
+.adm-v2-toolbar { margin-block-end:20px;padding:18px }
+.adm-v2-toolbar form { display:grid;grid-template-columns:minmax(220px,1fr) 220px auto;align-items:end;gap:14px }
+.adm-v2-toolbar label,.adm-v2-dialog label { display:grid;gap:6px;color:#334155;font-size:13px;font-weight:700 }
+.adm-v2-toolbar input,.adm-v2-toolbar select,.adm-v2-dialog select,.adm-v2-dialog textarea { width:100%;min-height:42px;padding:9px 11px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;font:inherit }
+.adm-v2-list { overflow:hidden }
+.adm-v2-table { overflow-x:auto }
+.adm-v2-table table { width:100%;border-collapse:collapse }
+.adm-v2-table th,.adm-v2-table td { padding:14px 16px;text-align:start;border-block-end:1px solid #e5ebf3;vertical-align:middle }
+.adm-v2-table th { color:#64748b;background:#f8fafc;font-size:12px;text-transform:uppercase }
+.adm-v2-table td small { display:block;color:#64748b;margin-block-start:3px }
+.adm-v2-status { display:inline-flex;padding:4px 9px;border-radius:999px;color:#334155;background:#edf2f7;font-size:12px;font-weight:800;white-space:nowrap }
+.adm-v2-status.is-received { color:#1d4ed8;background:#dbeafe }
+.adm-v2-status.is-reviewing,.adm-v2-status.is-interview { color:#92400e;background:#fef3c7 }
+.adm-v2-status.is-shortlisted,.adm-v2-status.is-accepted { color:#047857;background:#d1fae5 }
+.adm-v2-status.is-refused { color:#b91c1c;background:#fee2e2 }
+.adm-v2-dialog .adm-dialog-shell { width:min(860px,calc(100vw - 32px)) }
+.adm-v2-detail-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px }
+.adm-v2-detail-grid>div { padding:18px;background:#f8fafc;border:1px solid #e5ebf3 }
+.adm-v2-documents { display:flex;flex-wrap:wrap;gap:10px;margin-block-end:24px }
+.adm-v2-dialog form { display:grid;gap:16px;padding-block:22px;border-block:1px solid #e5ebf3 }
+.adm-v2-dialog textarea { min-height:110px;resize:vertical }
+.adm-v2-history p { display:flex;justify-content:space-between;gap:16px;padding-block:10px;margin:0;border-block-end:1px solid #e5ebf3 }
+.adm-v2-history span { color:#64748b }
+@media(max-width:860px){.adm-v2-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.adm-v2-toolbar form{grid-template-columns:1fr}.adm-v2-detail-grid{grid-template-columns:1fr}}
+@media(max-width:520px){.adm-v2-stats{grid-template-columns:1fr}.adm-v2-table th:nth-child(2),.adm-v2-table td:nth-child(2){display:none}}

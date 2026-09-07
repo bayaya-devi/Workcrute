@@ -19,6 +19,7 @@ import {
   processV2ApplicantEmails,
   submitV2Applicant,
 } from "./v2-applicants.js";
+import { adminV2Applicants } from "./v2-admin-applicants.js";
 
 const encoder = new TextEncoder();
 const fileTypes = new Map([
@@ -5050,6 +5051,13 @@ export default {
         response = await adminAuthStepTwo(request, env);
       else if (path === "/api/admin/auth/me" && request.method === "GET")
         response = await adminMe(request, env);
+      else if (
+        path === "/api/admin/v2/applicants" ||
+        path.startsWith("/api/admin/v2/applicants/")
+      ) {
+        const admin = await requireAdmin(request, env);
+        response = await adminV2Applicants(request, env, path, admin.id);
+      }
       else if (path === "/api/admin/auth/logout" && request.method === "POST")
         response = await adminLogout(request, env);
       else if (

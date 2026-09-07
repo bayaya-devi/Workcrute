@@ -100,11 +100,26 @@ Statut : `VALIDATED`
 
 ## PHASE 03 - Administration des postulants
 
-Statut : `IN_PROGRESS`
+Statut : `VALIDATED`
+
+### Realise
+
+- Nouvelle rubrique administrateur `Postulants` remplaçant l'ancien acces Candidats.
+- Indicateurs, recherche, filtre de statut et pagination.
+- Fiche complete avec coordonnees, profil, documents et notes administratives.
+- Telechargement des CV et lettres reserve a une session administrateur active.
+- Changement de statut avec historique horodate et rattachement a la session admin.
+- Interface FR/EN/AR et responsive.
+
+### Validation
+
+- Migration `0018_v2_applicant_admin.sql` appliquee localement.
+- Test d'integration complet : depot public, double authentification admin, recherche, fiche, telechargement, notes, statut et historique.
+- Syntaxe Worker et navigateur validee.
 
 ## PHASE 04 - Authentification V2
 
-Statut : `NOT_STARTED`
+Statut : `IN_PROGRESS`
 
 ## PHASE 05 - Administration des employes
 

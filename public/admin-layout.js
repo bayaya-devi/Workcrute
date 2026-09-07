@@ -4,7 +4,7 @@
     ["referrals", "/admin/transmissions/", "referrals", "⇢"],
     ["dashboard", "/admin/tableau-de-bord/", "dashboard", "⌂"],
     ["activity", "/admin/journal-activite/", "activity", "↻"],
-    ["candidates", "/admin/demandeurs/", "candidates", "♙"],
+    ["applicants", "/admin/postulants/", "applicants", "♙"],
     ["recruiters", "/admin/recruteurs/", "recruiters", "♜"],
     ["companies", "/admin/entreprises/", "companies", "▦"],
     ["jobs", "/admin/offres/", "jobs", "▤"],
