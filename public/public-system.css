@@ -400,6 +400,8 @@ html[dir="rtl"] .wc-message--user { border-radius: 12px 12px 12px 3px; }
   .wc-v2-entry { width: min(100%, 560px); }
   .wc-v2-steps { grid-template-columns: 1fr; }
   .wc-v2-steps article { min-height: 0; }
+  .wc-footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wc-footer-grid > :first-child { grid-column: 1 / -1; }
 }
 @media (max-width: 600px) {
   .wc-v2-hero h1 { font-size: 36px; }
@@ -407,6 +409,8 @@ html[dir="rtl"] .wc-message--user { border-radius: 12px 12px 12px 3px; }
   .wc-cv-drop-target { min-height: 340px; padding: 24px 18px; }
   .wc-v2-service-points p { grid-template-columns: 1fr; gap: 6px; }
   .wc-v2-final { align-items: flex-start; flex-direction: column; }
+  .wc-footer-grid { grid-template-columns: 1fr; }
+  .wc-footer-grid > :first-child { grid-column: auto; }
 }
 
 .wc-apply-main { min-height: 70vh; padding-block: 58px 84px; background: #f5f8fc; }

@@ -257,11 +257,24 @@ Statut : `VALIDATED`
 
 ## PHASE 12 - Responsive
 
-Statut : `IN_PROGRESS`
+Statut : `VALIDATED`
+
+### Realise
+
+- Correction de la grille du footer V2 qui reprenait quatre colonnes apres les anciennes regles mobiles.
+- Controle navigateur des pages Accueil, Connexion, Postuler et Aide.
+- Detection element par element des contenus sortant du viewport, en plus du controle de largeur globale.
+- Les tableaux admin conservent un defilement local et les navigations admin/employe basculent en mode mobile.
+
+### Validation
+
+- Chrome headless pilote par DevTools aux largeurs 320, 375, 390, 430, 768, 1024, 1440 et 1920 px.
+- Aucun overflow de page ni element visible hors viewport sur les quatre routes publiques testees.
+- La capture CLI mobile de Chrome impose une largeur interne minimale et n'a pas ete retenue comme preuve ; les mesures CDP emulees font foi.
 
 ## PHASE 13 - Performance et accessibilite
 
-Statut : `NOT_STARTED`
+Statut : `IN_PROGRESS`
 
 ## PHASE 14 - Revue de securite
 
