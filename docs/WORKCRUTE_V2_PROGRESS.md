@@ -76,11 +76,31 @@ Objectif : supprimer du parcours public le modele historique incompatible avec W
 
 ## PHASE 02 - Parcours postulant
 
-Statut : `IN_PROGRESS`
+Statut : `VALIDATED`
+
+### Realise
+
+- Parcours en quatre etapes sans creation de compte : coordonnees, profil, documents et confirmation.
+- CV obligatoire et lettre de motivation facultative, avec reprise automatique du CV depose depuis l'accueil.
+- Validation navigateur et validation serveur independante.
+- Conservation des donnees saisies lors des erreurs et prevention du double envoi.
+- Cle d'idempotence : une repetition reseau retourne la meme reference sans creer de doublon.
+- Limitation de debit par empreinte reseau.
+- Nouvelles tables D1 isolees `v2_*` pour postulants, documents en chunks, tentatives et emails.
+- Notification administrateur systematique et file d'emails asynchrone pour le postulant et l'administrateur.
+- Confirmation traduite FR/EN/AR avec reference unique.
+
+### Validation
+
+- Migration `0017_v2_applicants.sql` appliquee localement : 13 commandes reussies.
+- Build Worker `wrangler deploy --dry-run` reussi.
+- Test d'integration : creation HTTP 201, repetition idempotente HTTP 200 et formulaire invalide HTTP 422.
+- Verification D1 locale : un postulant, un document, un chunk et deux emails en file.
+- Syntaxe des modules Worker et navigateur validee.
 
 ## PHASE 03 - Administration des postulants
 
-Statut : `NOT_STARTED`
+Statut : `IN_PROGRESS`
 
 ## PHASE 04 - Authentification V2
 

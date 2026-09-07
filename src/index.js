@@ -15,6 +15,10 @@ import {
   savePlatformSection,
   platformCanonicalValues,
 } from "./platform-settings.js";
+import {
+  processV2ApplicantEmails,
+  submitV2Applicant,
+} from "./v2-applicants.js";
 
 const encoder = new TextEncoder();
 const fileTypes = new Map([
@@ -4916,6 +4920,8 @@ export default {
       else if (publicConfigPath || path === "/api/admin/platform-settings" || path.startsWith("/api/admin/platform-settings/"))
         response = await platformSettingsApi(request, env, path);
       else if (path === "/api/public/stats") response = await publicStats(env);
+      else if (path === "/api/v2/applicants")
+        response = await submitV2Applicant(request, env);
       else if (path === "/api/faq" || path === "/api/chatbot/ask")
         response = await publicFaq(request, env, path);
       else if (path === "/api/auth/register" && request.method === "POST")
@@ -5185,6 +5191,7 @@ export default {
   async scheduled(_controller, env, ctx) {
     ctx.waitUntil(processAdminEmailOutbox(env, 25));
     ctx.waitUntil(processRecruiterReferralEmails(env, 25));
+    ctx.waitUntil(processV2ApplicantEmails(env, 25));
     ctx.waitUntil(env.DB.prepare("UPDATE job_offers SET status='closed',updated_at=CURRENT_TIMESTAMP WHERE status='published' AND deadline_at IS NOT NULL AND deadline_at<CURRENT_TIMESTAMP").run());
   },
 };

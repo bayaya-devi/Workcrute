@@ -409,6 +409,54 @@ html[dir="rtl"] .wc-message--user { border-radius: 12px 12px 12px 3px; }
   .wc-v2-final { align-items: flex-start; flex-direction: column; }
 }
 
+.wc-apply-main { min-height: 70vh; padding-block: 58px 84px; background: #f5f8fc; }
+.wc-apply-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 32px; margin-block-end: 42px; }
+.wc-apply-head > div { max-width: 760px; }
+.wc-apply-head h1 { font-size: 44px; }
+.wc-apply-layout { display: grid; grid-template-columns: 230px minmax(0, 760px); gap: 64px; align-items: start; }
+.wc-apply-progress { position: sticky; inset-block-start: 110px; }
+.wc-apply-progress ol { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.wc-apply-progress li { display: grid; grid-template-columns: 34px 1fr; align-items: center; gap: 12px; min-height: 62px; color: #718096; font-size: 14px; font-weight: 700; }
+.wc-apply-progress li > span:first-child { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid #c8d4e3; border-radius: 50%; background: #fff; }
+.wc-apply-progress li.is-active { color: #0f4fa8; }
+.wc-apply-progress li.is-active > span:first-child { color: #fff; border-color: #1377e8; background: #1377e8; }
+.wc-apply-progress li.is-complete > span:first-child { color: #fff; border-color: #168d80; background: #168d80; }
+.wc-apply-form { min-width: 0; padding: 40px; background: #fff; border: 1px solid #dbe4f0; border-radius: 8px; box-shadow: 0 16px 40px rgb(15 35 70 / 7%); }
+.wc-apply-form h2 { font-size: 28px; }
+.wc-apply-step { min-height: 420px; }
+.wc-apply-question { display: flex; flex-wrap: wrap; gap: 14px 24px; margin: 12px 0 0; padding: 20px; border: 1px solid #dbe4f0; }
+.wc-apply-question legend { padding-inline: 8px; color: #14233e; font-weight: 700; }
+.wc-apply-question label { display: flex; align-items: center; gap: 8px; }
+.wc-apply-question input { width: 17px; height: 17px; accent-color: #1377e8; }
+.wc-document-input { margin-block-end: 20px; padding: 22px; border: 1px dashed #9ab8db; background: #f8fbff; }
+.wc-document-input label { display: flex; align-items: center; gap: 16px; cursor: pointer; }
+.wc-document-input label > span:not(.wc-button) { flex: 1; color: #64748b; font-size: 13px; }
+.wc-document-input p { margin: 10px 0 0; color: #08766c; font-size: 14px; font-weight: 700; }
+.wc-apply-review { margin: 24px 0; border-block-start: 1px solid #dbe4f0; }
+.wc-apply-review > div { display: grid; grid-template-columns: minmax(130px, .55fr) 1fr; gap: 20px; padding-block: 13px; border-block-end: 1px solid #dbe4f0; }
+.wc-apply-review dt { color: #64748b; }
+.wc-apply-review dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.wc-consent { margin-block-start: 26px; padding: 16px; background: #f1f8f7; }
+.wc-apply-success { grid-column: 2; padding: 54px 40px; text-align: center; background: #fff; border: 1px solid #b8d6d1; }
+.wc-apply-success > span { width: 64px; height: 64px; display: grid; place-items: center; margin: 0 auto 20px; color: #fff; background: #168d80; border-radius: 50%; font-size: 30px; }
+
+@media (max-width: 860px) {
+  .wc-apply-layout { grid-template-columns: 1fr; gap: 24px; }
+  .wc-apply-progress { position: static; overflow-x: auto; }
+  .wc-apply-progress ol { min-width: 560px; grid-template-columns: repeat(4, 1fr); }
+  .wc-apply-progress li { grid-template-columns: 32px 1fr; }
+  .wc-apply-success { grid-column: 1; }
+}
+@media (max-width: 600px) {
+  .wc-apply-main { padding-block: 34px 58px; }
+  .wc-apply-head { flex-direction: column; margin-block-end: 28px; }
+  .wc-apply-head h1 { font-size: 34px; }
+  .wc-apply-form { padding: 26px 18px; }
+  .wc-document-input label { align-items: stretch; flex-direction: column; }
+  .wc-document-input .wc-button { width: 100%; }
+  .wc-apply-review > div { grid-template-columns: 1fr; gap: 3px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }

@@ -18,6 +18,7 @@
     "test:errors": "node scripts/test-error-management.mjs",
     "test:admin-settings": "node scripts/test-admin-settings.mjs",
     "test:referrals": "node scripts/test-candidate-referrals.mjs",
+    "test:v2-applicants": "node scripts/test-v2-applicants.mjs",
     "seed:demo": "node scripts/seed-demo.js"
   },
   "devDependencies": {
