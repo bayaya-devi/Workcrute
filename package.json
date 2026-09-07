@@ -23,6 +23,7 @@
     "test:v2-auth": "node scripts/test-v2-auth.mjs",
     "test:v2-employees": "node scripts/test-v2-employees.mjs",
     "test:v2-leave": "node scripts/test-v2-leave.mjs",
+    "test:v2-i18n": "node scripts/test-v2-i18n.mjs",
     "seed:demo": "node scripts/seed-demo.js"
   },
   "devDependencies": {

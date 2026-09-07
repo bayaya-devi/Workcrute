@@ -88,7 +88,11 @@
   const supported = ["fr", "en", "ar"];
   const getLanguage = () => {
     const stored = localStorage.getItem("wc_language");
-    return supported.includes(stored) ? stored : "fr";
+    if (supported.includes(stored)) return stored;
+    const detected = (navigator.languages || [navigator.language])
+      .map((value) => String(value || "").toLowerCase().split("-")[0])
+      .find((value) => supported.includes(value));
+    return detected || "fr";
   };
   const t = (key, language = getLanguage()) => messages[language]?.[key] || messages.fr[key] || key;
   const apply = (requested) => {

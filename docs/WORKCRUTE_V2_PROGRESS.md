@@ -201,17 +201,30 @@ Statut : `VALIDATED`
 
 ## PHASE 08 - Consolidation i18n
 
-Statut : `IN_PROGRESS`
+Statut : `VALIDATED`
+
+### Realise
+
+- Detection initiale de la langue du navigateur sur les pages publiques, avec persistance locale du choix.
+- Catalogues FR, EN et AR verifies pour le public, le Control Center et l'espace employe.
+- Traduction des contenus dynamiques Employes, Conges et Identite administrateur.
+- Changement de langue immediat sans perdre les donnees d'un formulaire ouvert.
+- Direction RTL appliquee aux espaces admin et employe en arabe.
+
+### Validation
+
+- Test statique `test:v2-i18n` couvrant les trois catalogues, les evenements de changement et le RTL.
+- Syntaxe JavaScript et build Wrangler verifies.
 
 ## PHASE 09 - Facturation
 
-Statut : `NOT_STARTED`
+Statut : `BLOCKED`
 
-Dependance connue : modele de facture reel non fourni.
+Le modele de facture reel, indispensable pour reproduire fidelement sa structure et ses calculs, n'a pas ete fourni. L'espace employe conserve donc un etat vide honnete sans fausse facture. Les phases independantes continuent.
 
 ## PHASE 10 - Retrait de l'ancien modele
 
-Statut : `NOT_STARTED`
+Statut : `IN_PROGRESS`
 
 ## PHASE 11 - Refactorisation
 

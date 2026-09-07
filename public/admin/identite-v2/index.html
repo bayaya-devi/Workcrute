@@ -1,15 +1,15 @@
 <!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Identité de connexion | Workcrute</title><link rel="stylesheet" href="../../admin-system.css"></head>
 <body class="admin-body" data-admin-page="v2Identity"><template data-admin-content>
-  <header class="adm-head"><div><span class="adm-kicker">Workcrute V2</span><h1>Identité de connexion</h1><p>Configurez l’unique compte administrateur utilisé sur la page de connexion publique.</p></div></header>
+  <header class="adm-head"><div><span class="adm-kicker">Workcrute V2</span><h1 data-adm-i18n="v2_identity_title">Identité de connexion</h1><p data-adm-i18n="v2_identity_copy">Configurez l’unique compte administrateur utilisé sur la page de connexion publique.</p></div></header>
   <section class="adm-card adm-v2-identity">
     <div class="adm-alert" data-v2-admin-state>Chargement…</div>
     <form data-v2-admin-account novalidate>
-      <div class="adm-form-grid"><label>Prénom *<input name="firstName" required maxlength="100" autocomplete="off"></label><label>Nom *<input name="lastName" required maxlength="100" autocomplete="off"></label></div>
-      <label>Nouveau mot de passe *<input name="password" type="password" required minlength="4" maxlength="256" autocomplete="new-password"><small>4 caractères minimum. Le mot de passe est hashé et ne pourra plus être affiché.</small></label>
-      <label>Confirmation *<input name="confirmation" type="password" required minlength="4" maxlength="256" autocomplete="new-password"></label>
+      <div class="adm-form-grid"><label><span data-adm-i18n="v2_first_name">Prénom</span> *<input name="firstName" required maxlength="100" autocomplete="off"></label><label><span data-adm-i18n="v2_last_name">Nom</span> *<input name="lastName" required maxlength="100" autocomplete="off"></label></div>
+      <label><span data-adm-i18n="v2_new_password">Nouveau mot de passe</span> *<input name="password" type="password" required minlength="4" maxlength="256" autocomplete="new-password"><small>4 caractères minimum. Le mot de passe est hashé et ne pourra plus être affiché.</small></label>
+      <label><span data-adm-i18n="v2_confirmation">Confirmation</span> *<input name="confirmation" type="password" required minlength="4" maxlength="256" autocomplete="new-password"></label>
       <div class="adm-form-error" data-v2-admin-error role="alert"></div>
-      <button class="adm-button primary" type="submit">Enregistrer l’identité V2</button>
+      <button class="adm-button primary" type="submit" data-adm-i18n="v2_save_identity">Enregistrer l’identité V2</button>
     </form>
   </section>
 </template><script src="../../admin-layout.js"></script><script src="../../admin-i18n.js"></script><script src="../../admin-control-center.js"></script><script src="../../admin-v2-identity.js"></script></body></html>
