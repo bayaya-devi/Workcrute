@@ -20,6 +20,7 @@ import {
   submitV2Applicant,
 } from "./v2-applicants.js";
 import { adminV2Applicants } from "./v2-admin-applicants.js";
+import { adminV2Employees } from "./v2-admin-employees.js";
 import {
   configureV2Admin,
   v2Auth,
@@ -5078,6 +5079,13 @@ export default {
       ) {
         const admin = await requireAdmin(request, env);
         response = await adminV2Applicants(request, env, path, admin.id);
+      }
+      else if (
+        path === "/api/admin/v2/employees" ||
+        path.startsWith("/api/admin/v2/employees/")
+      ) {
+        await requireAdmin(request, env);
+        response = await adminV2Employees(request, env, path);
       }
       else if (path === "/api/admin/auth/logout" && request.method === "POST")
         response = await adminLogout(request, env);

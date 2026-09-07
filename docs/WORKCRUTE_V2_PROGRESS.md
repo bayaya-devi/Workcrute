@@ -119,7 +119,7 @@ Statut : `VALIDATED`
 
 ## PHASE 04 - Authentification V2
 
-Statut : `IN_PROGRESS`
+Statut : `VALIDATED`
 
 ### Implemente
 
@@ -137,13 +137,32 @@ Statut : `IN_PROGRESS`
 - La validation employee sera terminee avec la creation employee de la PHASE 05.
 - L'identite admin V2 de production doit etre choisie dans le Control Center ; cela n'empeche pas les phases independantes.
 
+### Validation finale
+
+- Le meme endpoint et le meme formulaire identifient correctement un administrateur et un employe.
+- Les redirections serveur admin et employe ont ete validees par les tests des PHASES 04 et 05.
+
 ## PHASE 05 - Administration des employes
 
-Statut : `IN_PROGRESS`
+Statut : `VALIDATED`
+
+### Realise
+
+- Section admin Employes avec recherche, creation, modification, activation et desactivation.
+- Identite nom/prenom unique et role fixe cote serveur.
+- Mot de passe choisi librement par l'admin, y compris `1234`, mais toujours sale et hashe.
+- Rotation du mot de passe avec revocation des sessions existantes.
+- Profil employe separe pour fonction, service, email, telephone et date d'entree.
+- Aucun endpoint public de creation de compte employe.
+
+### Validation
+
+- Creation admin, recherche, connexion employee, redirection, modification, nouveau mot de passe, desactivation et refus de connexion testes en integration.
+- Migration `0020_v2_employees.sql` appliquee localement.
 
 ## PHASE 06 - Espace employe
 
-Statut : `NOT_STARTED`
+Statut : `IN_PROGRESS`
 
 ## PHASE 07 - Conges
 

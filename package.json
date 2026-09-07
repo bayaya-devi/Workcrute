@@ -21,6 +21,7 @@
     "test:v2-applicants": "node scripts/test-v2-applicants.mjs",
     "test:v2-admin-applicants": "node scripts/test-v2-admin-applicants.mjs",
     "test:v2-auth": "node scripts/test-v2-auth.mjs",
+    "test:v2-employees": "node scripts/test-v2-employees.mjs",
     "seed:demo": "node scripts/seed-demo.js"
   },
   "devDependencies": {

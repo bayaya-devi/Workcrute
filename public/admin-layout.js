@@ -5,7 +5,7 @@
     ["dashboard", "/admin/tableau-de-bord/", "dashboard", "⌂"],
     ["activity", "/admin/journal-activite/", "activity", "↻"],
     ["applicants", "/admin/postulants/", "applicants", "♙"],
-    ["recruiters", "/admin/recruteurs/", "recruiters", "♜"],
+    ["employees", "/admin/employes/", "employees", "♜"],
     ["companies", "/admin/entreprises/", "companies", "▦"],
     ["jobs", "/admin/offres/", "jobs", "▤"],
     ["applications", "/admin/candidatures/", "applications", "✓"],
