@@ -1,1 +1,8 @@
 # Static pages are served from their own route directories.
+/offres/* / 302
+/candidats/* / 302
+/recruteurs/* / 302
+/inscription/* / 302
+/demandeur/* / 302
+/recruteur/* / 302
+/mot-de-passe-oublie/* /connexion/ 302

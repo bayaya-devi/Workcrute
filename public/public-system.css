@@ -333,6 +333,82 @@ html[dir="rtl"] .wc-message--user { border-radius: 12px 12px 12px 3px; }
   .wc-footer-bottom { flex-direction: column; }
 }
 
+.wc-v2-hero {
+  min-height: min(760px, calc(100vh - 76px));
+  display: grid;
+  align-items: center;
+  padding-block: 72px;
+  color: #fff;
+  background: #071b45;
+}
+.wc-v2-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 520px);
+  align-items: center;
+  gap: 72px;
+}
+.wc-v2-hero-copy { max-width: 650px; }
+.wc-v2-hero h1 { color: #fff; font-size: 56px; }
+.wc-v2-hero .wc-lead { color: #d7e5ff; font-size: 19px; }
+.wc-v2-hero .wc-eyebrow { color: #52d6c8; }
+.wc-v2-trust { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-block-start: 28px; color: #e8f0ff; font-size: 14px; font-weight: 700; }
+.wc-v2-trust span::before { content: "✓"; margin-inline-end: 8px; color: #52d6c8; }
+.wc-v2-entry { padding: 12px; border: 1px solid rgb(255 255 255 / 18%); border-radius: 8px; background: rgb(255 255 255 / 7%); }
+.wc-cv-drop { margin: 0; }
+.wc-cv-drop-target {
+  min-height: 410px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 38px;
+  color: #17223b;
+  text-align: center;
+  background: #fff;
+  border: 2px dashed #8db7ee;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color .2s, background .2s, transform .2s;
+}
+.wc-cv-drop-target:hover, .wc-cv-drop-target.is-dragging { border-color: #1a9e92; background: #f2fffd; transform: translateY(-2px); }
+.wc-cv-drop-target > strong { font-size: 24px; }
+.wc-cv-drop-target > span:not(.wc-button):not(.wc-cv-icon), .wc-cv-drop-target small { color: #60708d; }
+.wc-cv-icon { width: 72px; height: 72px; display: grid; place-items: center; color: #fff; background: #1377e8; border-radius: 8px; font-weight: 800; }
+.wc-cv-feedback { min-height: 24px; margin: 10px 0 0; color: #fff; text-align: center; font-size: 14px; font-weight: 700; }
+.wc-cv-feedback.is-error { color: #fecaca; }
+.wc-cv-feedback.is-ready { color: #8cf0dc; }
+.wc-v2-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: #dbe4f0; border: 1px solid #dbe4f0; }
+.wc-v2-steps article { min-height: 260px; padding: 34px; background: #fff; }
+.wc-v2-steps article > span { display: inline-block; margin-block-end: 38px; color: #1377e8; font-size: 14px; font-weight: 800; }
+.wc-v2-steps article p { color: #64748b; }
+.wc-v2-service { background: #eef8f7; }
+.wc-v2-service-grid { display: grid; grid-template-columns: .85fr 1.15fr; gap: 80px; align-items: start; }
+.wc-v2-service-points { display: grid; gap: 0; border-block-start: 1px solid #b8d6d1; }
+.wc-v2-service-points p { display: grid; grid-template-columns: minmax(150px, .7fr) 1.3fr; gap: 24px; margin: 0; padding-block: 24px; border-block-end: 1px solid #b8d6d1; }
+.wc-v2-service-points span { color: #53657b; }
+.wc-v2-final { display: flex; align-items: center; justify-content: space-between; gap: 32px; }
+.wc-v2-final h2 { margin: 0; }
+[data-reveal] { opacity: 0; transform: translateY(24px); transition: opacity .55s ease, transform .55s ease; }
+[data-reveal].is-visible { opacity: 1; transform: none; }
+.wc-footer-grid { grid-template-columns: 1.6fr repeat(3, 1fr); }
+
+@media (max-width: 860px) {
+  .wc-v2-hero { min-height: auto; padding-block: 52px; }
+  .wc-v2-hero-grid, .wc-v2-service-grid { grid-template-columns: 1fr; gap: 42px; }
+  .wc-v2-hero h1 { font-size: 42px; }
+  .wc-v2-entry { width: min(100%, 560px); }
+  .wc-v2-steps { grid-template-columns: 1fr; }
+  .wc-v2-steps article { min-height: 0; }
+}
+@media (max-width: 600px) {
+  .wc-v2-hero h1 { font-size: 36px; }
+  .wc-v2-hero .wc-lead { font-size: 17px; }
+  .wc-cv-drop-target { min-height: 340px; padding: 24px 18px; }
+  .wc-v2-service-points p { grid-template-columns: 1fr; gap: 6px; }
+  .wc-v2-final { align-items: flex-start; flex-direction: column; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }

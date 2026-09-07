@@ -26,17 +26,14 @@
         <a class="wc-brand" data-go="/" href="${href("/")}" aria-label="${escapeHtml(siteName())}"><img data-site-logo src="${brandLogo()}" alt="${escapeHtml(siteName())}" width="300" height="96"></a>
         <nav class="wc-nav" data-i18n-aria="main_navigation" aria-label="Navigation principale">
           <a data-go="/" href="${href("/")}" data-nav="home" data-i18n="nav_home">${t("nav_home")}</a>
-          <a data-go="/offres" href="${href("/offres")}" data-nav="jobs" data-i18n="nav_jobs">${t("nav_jobs")}</a>
-          <a data-go="/candidats" href="${href("/candidats")}" data-nav="candidates" data-i18n="nav_candidates">${t("nav_candidates")}</a>
-          <a data-go="/recruteurs" href="${href("/recruteurs")}" data-nav="recruiters" data-i18n="nav_recruiters">${t("nav_recruiters")}</a>
-          <a href="${href("/")}#how" data-i18n="nav_how">${t("nav_how")}</a>
-          <a data-go="/a-propos" href="${href("/a-propos")}" data-nav="about" data-i18n="nav_about">${t("nav_about")}</a>
+          <a href="${href("/")}#process" data-i18n="nav_process">${t("nav_process")}</a>
+          <a data-go="/aide" href="${href("/aide")}" data-nav="help" data-i18n="footer_help">${t("footer_help")}</a>
         </nav>
         <div class="wc-header-actions">
           <label class="wc-sr-only" for="wc-language" data-i18n="language">${t("language")}</label>
           <select id="wc-language" class="wc-language" data-language><option value="fr">FR</option><option value="en">EN</option><option value="ar">AR</option></select>
           <a class="wc-button wc-button--ghost" data-go="/connexion" href="${href("/connexion")}" data-i18n="sign_in">${t("sign_in")}</a>
-          <a class="wc-button wc-button--primary" data-go="/inscription" href="${href("/inscription")}" data-i18n="create_account">${t("create_account")}</a>
+          <a class="wc-button wc-button--primary" href="${href("/")}#cv-entry" data-i18n="apply_v2">${t("apply_v2")}</a>
           <button class="wc-icon-button wc-menu-button" type="button" data-menu-open data-i18n-aria="menu" aria-expanded="false"><span aria-hidden="true">☰</span></button>
         </div>
       </div>
@@ -45,17 +42,16 @@
       <button class="wc-drawer-backdrop" type="button" data-menu-close data-i18n-aria="close" aria-label="Fermer"></button>
       <aside class="wc-drawer-panel" data-i18n-aria="mobile_navigation" aria-label="Navigation mobile">
         <div class="wc-drawer-head"><a class="wc-brand" data-go="/" href="${href("/")}"><img data-site-logo src="${brandLogo()}" alt="Workcrute"></a><button class="wc-icon-button" type="button" data-menu-close data-i18n-aria="close">×</button></div>
-        <nav class="wc-drawer-nav"><a data-go="/" href="${href("/")}" data-i18n="nav_home">${t("nav_home")}</a><a data-go="/offres" href="${href("/offres")}" data-i18n="nav_jobs">${t("nav_jobs")}</a><a data-go="/candidats" href="${href("/candidats")}" data-i18n="nav_candidates">${t("nav_candidates")}</a><a data-go="/recruteurs" href="${href("/recruteurs")}" data-i18n="nav_recruiters">${t("nav_recruiters")}</a><a href="${href("/")}#how" data-i18n="nav_how">${t("nav_how")}</a><a data-go="/a-propos" href="${href("/a-propos")}" data-i18n="nav_about">${t("nav_about")}</a></nav>
-        <div class="wc-drawer-actions"><a class="wc-button wc-button--secondary" data-go="/connexion" href="${href("/connexion")}" data-i18n="sign_in">${t("sign_in")}</a><a class="wc-button wc-button--primary" data-go="/inscription" href="${href("/inscription")}" data-i18n="create_account">${t("create_account")}</a></div>
+        <nav class="wc-drawer-nav"><a data-go="/" href="${href("/")}" data-i18n="nav_home">${t("nav_home")}</a><a href="${href("/")}#process" data-i18n="nav_process">${t("nav_process")}</a><a data-go="/aide" href="${href("/aide")}" data-i18n="footer_help">${t("footer_help")}</a></nav>
+        <div class="wc-drawer-actions"><a class="wc-button wc-button--secondary" data-go="/connexion" href="${href("/connexion")}" data-i18n="sign_in">${t("sign_in")}</a><a class="wc-button wc-button--primary" href="${href("/")}#cv-entry" data-i18n="apply_v2">${t("apply_v2")}</a></div>
       </aside>
     </div>`;
 
   const footer = () => `
     <footer class="wc-footer"><div class="wc-container"><div class="wc-footer-grid">
       <div><a class="wc-brand" data-go="/" href="${href("/")}"><img data-site-logo src="${brandLogo()}" alt="Workcrute"></a><p data-i18n="footer_copy">${t("footer_copy")}</p></div>
-      <div><h3 data-i18n="footer_candidates">${t("footer_candidates")}</h3><div class="wc-footer-links"><a data-go="/offres" href="${href("/offres")}" data-i18n="footer_jobs">${t("footer_jobs")}</a><a data-go="/inscription/demandeur" href="${href("/inscription/demandeur")}" data-i18n="footer_register">${t("footer_register")}</a></div></div>
-      <div><h3 data-i18n="footer_recruiters">${t("footer_recruiters")}</h3><div class="wc-footer-links"><a data-go="/recruteurs" href="${href("/recruteurs")}" data-i18n="nav_recruiters">${t("nav_recruiters")}</a><a data-go="/inscription/recruteur" href="${href("/inscription/recruteur")}" data-i18n="create_account">${t("create_account")}</a></div></div>
-      <div><h3 data-i18n="footer_company">${t("footer_company")}</h3><div class="wc-footer-links"><a href="${href("/")}#how" data-i18n="nav_how">${t("nav_how")}</a><a data-go="/a-propos" href="${href("/a-propos")}" data-i18n="nav_about">${t("nav_about")}</a><a data-go="/mentions-legales" href="${href("/mentions-legales")}" data-i18n="footer_legal">${t("footer_legal")}</a></div></div>
+      <div><h3 data-i18n="footer_service">${t("footer_service")}</h3><div class="wc-footer-links"><a href="${href("/")}#cv-entry" data-i18n="apply_v2">${t("apply_v2")}</a><a data-go="/connexion" href="${href("/connexion")}" data-i18n="footer_login">${t("footer_login")}</a><a href="${href("/")}#process" data-i18n="nav_process">${t("nav_process")}</a></div></div>
+      <div><h3 data-i18n="footer_information">${t("footer_information")}</h3><div class="wc-footer-links"><a data-go="/a-propos" href="${href("/a-propos")}" data-i18n="nav_about">${t("nav_about")}</a><a data-go="/mentions-legales" href="${href("/mentions-legales")}" data-i18n="footer_legal">${t("footer_legal")}</a></div></div>
       <div><h3 data-i18n="footer_support">${t("footer_support")}</h3><div class="wc-footer-links"><a data-go="/aide" href="${href("/aide")}" data-i18n="footer_help">${t("footer_help")}</a>${window.WorkcruteConfig?.general?.supportEmail?`<a href="mailto:${escapeHtml(window.WorkcruteConfig.general.supportEmail)}">${escapeHtml(window.WorkcruteConfig.general.supportEmail)}</a>`:""}${window.WorkcruteConfig?.general?.supportPhone?`<a href="tel:${escapeHtml(window.WorkcruteConfig.general.supportPhone)}">${escapeHtml(window.WorkcruteConfig.general.supportPhone)}</a>`:""}<a data-go="/confidentialite" href="${href("/confidentialite")}" data-i18n="footer_privacy">${t("footer_privacy")}</a><a data-go="/conditions" href="${href("/conditions")}" data-i18n="footer_terms">${t("footer_terms")}</a></div></div>
     </div><div class="wc-footer-bottom"><span>© <span data-year></span> ${escapeHtml(siteName())}. <span data-i18n="footer_rights">${t("footer_rights")}</span></span><span>FR · EN · العربية</span></div></div></footer>`;
 

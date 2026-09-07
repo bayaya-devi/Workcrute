@@ -49,6 +49,28 @@
     }
   };
 
+  Object.assign(messages.fr, {
+    nav_process: "Fonctionnement", apply_v2: "Postuler", footer_service: "Service", footer_information: "Informations",
+    v2_eyebrow: "Votre candidature, simplement", v2_hero_title: "Votre avenir commence ici !", v2_hero_copy: "Déposez votre CV, complétez vos informations et envoyez votre candidature à Workcrute en quelques minutes. Aucun compte n’est nécessaire.",
+    v2_trust_fast: "Parcours rapide", v2_trust_secure: "Données protégées", v2_trust_no_account: "Sans compte candidat", v2_drop_title: "Déposez votre CV ici", v2_drop_copy: "Glissez votre fichier ou choisissez-le sur votre appareil", v2_choose_file: "Choisir mon CV", v2_file_rules: "PDF, DOC ou DOCX, 8 Mo maximum", v2_file_type_error: "Choisissez un fichier PDF, DOC ou DOCX.", v2_file_size_error: "Le fichier ne doit pas dépasser 8 Mo.", v2_file_ready: "CV prêt : {name}",
+    v2_process_badge: "Comment postuler", v2_process_title: "Trois étapes, sans détour.", v2_process_copy: "Votre dossier arrive directement auprès de l’équipe Workcrute.", v2_step_1: "Ajoutez votre CV", v2_step_1_copy: "Nous acceptons les formats PDF, DOC et DOCX.", v2_step_2: "Présentez votre parcours", v2_step_2_copy: "Renseignez vos coordonnées et vos informations professionnelles.", v2_step_3: "Envoyez votre candidature", v2_step_3_copy: "Relisez, confirmez et recevez votre accusé de réception.",
+    v2_service_badge: "Le service Workcrute", v2_service_title: "Une candidature humaine, traitée avec attention.", v2_service_1: "Un dossier clair", v2_service_1_copy: "Vos informations et documents sont réunis au même endroit.", v2_service_2: "Un traitement responsable", v2_service_2_copy: "L’accès à votre candidature est réservé à l’équipe autorisée.", v2_service_3: "Une confirmation immédiate", v2_service_3_copy: "Vous savez que votre dossier a bien été transmis.", v2_ready_badge: "Prêt à commencer ?", v2_ready_title: "Votre prochaine étape tient dans un CV."
+  });
+  Object.assign(messages.en, {
+    nav_process: "How it works", apply_v2: "Apply", footer_service: "Service", footer_information: "Information",
+    v2_eyebrow: "Your application, made simple", v2_hero_title: "Your future starts here!", v2_hero_copy: "Upload your resume, complete your details and send your application to Workcrute in just a few minutes. No account is required.",
+    v2_trust_fast: "Quick application", v2_trust_secure: "Protected data", v2_trust_no_account: "No candidate account", v2_drop_title: "Drop your resume here", v2_drop_copy: "Drag your file here or choose it from your device", v2_choose_file: "Choose my resume", v2_file_rules: "PDF, DOC or DOCX, 8 MB maximum", v2_file_type_error: "Choose a PDF, DOC or DOCX file.", v2_file_size_error: "The file must not exceed 8 MB.", v2_file_ready: "Resume ready: {name}",
+    v2_process_badge: "How to apply", v2_process_title: "Three steps, no detours.", v2_process_copy: "Your application goes directly to the Workcrute team.", v2_step_1: "Add your resume", v2_step_1_copy: "We accept PDF, DOC and DOCX files.", v2_step_2: "Present your experience", v2_step_2_copy: "Enter your contact and professional details.", v2_step_3: "Send your application", v2_step_3_copy: "Review, confirm and receive your acknowledgement.",
+    v2_service_badge: "The Workcrute service", v2_service_title: "A human application, handled with care.", v2_service_1: "A clear application", v2_service_1_copy: "Your information and documents stay together.", v2_service_2: "Responsible processing", v2_service_2_copy: "Only the authorised team can access your application.", v2_service_3: "Immediate confirmation", v2_service_3_copy: "You know that your application has been received.", v2_ready_badge: "Ready to begin?", v2_ready_title: "Your next step starts with a resume."
+  });
+  Object.assign(messages.ar, {
+    nav_process: "طريقة العمل", apply_v2: "قدّم طلبك", footer_service: "الخدمة", footer_information: "معلومات",
+    v2_eyebrow: "طلب توظيف بسيط", v2_hero_title: "مستقبلك يبدأ هنا!", v2_hero_copy: "أرفق سيرتك الذاتية وأكمل معلوماتك وأرسل طلبك إلى Workcrute خلال دقائق من دون إنشاء حساب.",
+    v2_trust_fast: "طلب سريع", v2_trust_secure: "بيانات محمية", v2_trust_no_account: "من دون حساب للمرشح", v2_drop_title: "ضع سيرتك الذاتية هنا", v2_drop_copy: "اسحب الملف أو اختره من جهازك", v2_choose_file: "اختيار سيرتي الذاتية", v2_file_rules: "PDF أو DOC أو DOCX، بحد أقصى 8 ميغابايت", v2_file_type_error: "اختر ملف PDF أو DOC أو DOCX.", v2_file_size_error: "يجب ألا يتجاوز الملف 8 ميغابايت.", v2_file_ready: "السيرة الذاتية جاهزة: {name}",
+    v2_process_badge: "طريقة التقديم", v2_process_title: "ثلاث خطوات مباشرة.", v2_process_copy: "يصل ملفك مباشرة إلى فريق Workcrute.", v2_step_1: "أضف سيرتك الذاتية", v2_step_1_copy: "نقبل ملفات PDF وDOC وDOCX.", v2_step_2: "عرّف بمسارك", v2_step_2_copy: "أدخل بيانات الاتصال والمعلومات المهنية.", v2_step_3: "أرسل طلبك", v2_step_3_copy: "راجع المعلومات وأكدها واحصل على إشعار الاستلام.",
+    v2_service_badge: "خدمة Workcrute", v2_service_title: "طلب إنساني يحظى بالعناية.", v2_service_1: "ملف واضح", v2_service_1_copy: "تبقى معلوماتك ووثائقك مجمّعة في مكان واحد.", v2_service_2: "معالجة مسؤولة", v2_service_2_copy: "يقتصر الوصول إلى طلبك على الفريق المخوّل.", v2_service_3: "تأكيد فوري", v2_service_3_copy: "تعرف فوراً أن ملفك وصل بنجاح.", v2_ready_badge: "هل أنت مستعد؟", v2_ready_title: "خطوتك المقبلة تبدأ بسيرة ذاتية."
+  });
+
   const supported = ["fr", "en", "ar"];
   const getLanguage = () => {
     const stored = localStorage.getItem("wc_language");

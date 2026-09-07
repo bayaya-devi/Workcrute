@@ -51,13 +51,32 @@ Les criteres essentiels de baseline, de recuperation, de connectivite et de non-
 
 ## PHASE 01 - Nettoyage du public
 
-Statut : `IN_PROGRESS`
+Statut : `VALIDATED`
 
 Objectif : supprimer du parcours public le modele historique incompatible avec Workcrute V2, unifier la navigation et installer l'appel a l'action de depot de CV sans casser les services existants.
 
+### Realise
+
+- Accueil remplace par une page V2 centree sur le depot de CV sans compte candidat.
+- Navigation publique reduite a l'accueil, au fonctionnement, a l'aide, a la langue et a la connexion unique.
+- Liens publics vers les offres, candidats, recruteurs et inscriptions retires du header et du footer.
+- Anciennes routes publiques incompatibles redirigees vers l'accueil sur Cloudflare Pages.
+- Validation locale du type et de la taille du CV, conservation temporaire dans IndexedDB et transfert vers le parcours postulant.
+- Traductions completes de la nouvelle surface en francais, anglais et arabe.
+- Direction RTL activee par le runtime existant.
+- Animations d'apparition avec respect de `prefers-reduced-motion`.
+
+### Validation
+
+- Syntaxe JavaScript validee pour le shell, l'i18n et l'entree V2.
+- Toutes les cles i18n utilisees par l'accueil sont presentes.
+- Absence des anciens appels a l'action dans le HTML de l'accueil.
+- Accueil, feuille de style et script V2 servis localement avec HTTP 200.
+- Verification `git diff --check` sans erreur.
+
 ## PHASE 02 - Parcours postulant
 
-Statut : `NOT_STARTED`
+Statut : `IN_PROGRESS`
 
 ## PHASE 03 - Administration des postulants
 
