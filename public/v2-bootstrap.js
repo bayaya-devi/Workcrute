@@ -10,6 +10,7 @@
     return body;
   };
   const applyConfig = (config) => {
+    if (config.chatbot) config.chatbot.welcome = null;
     window.WorkcruteConfig = config;
     const name = config.general?.siteName || "Workcrute";
     document.title = document.title.replace(/Workcrute/g, name);

@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { executeLocalSql } from "./local-d1.mjs";
 
 const secret1 = `A1!${randomBytes(18).toString("base64url")}`;
 const secret2 = `B2!${randomBytes(18).toString("base64url")}`;
@@ -10,9 +11,9 @@ const port = 8797;
 const base = `http://127.0.0.1:${port}`;
 const wrangler = fileURLToPath(new URL("../node_modules/wrangler/bin/wrangler.js", import.meta.url));
 const projectDir = fileURLToPath(new URL("..", import.meta.url));
-const reset = spawnSync(process.execPath, [wrangler, "d1", "execute", "workcrute", "--local", "--command", "DELETE FROM admin_sessions; DELETE FROM admin_auth_challenges; DELETE FROM admin_rate_limits; UPDATE admin_security_config SET secret_1_hash=NULL,secret_1_salt=NULL,secret_2_hash=NULL,secret_2_salt=NULL WHERE id=1"], { cwd:projectDir, stdio:"ignore" });
-if (reset.status !== 0) throw new Error("Base locale indisponible");
+executeLocalSql("DELETE FROM admin_sessions; DELETE FROM admin_auth_challenges; DELETE FROM admin_rate_limits; UPDATE admin_security_config SET secret_1_hash=NULL,secret_1_salt=NULL,secret_2_hash=NULL,secret_2_salt=NULL WHERE id=1");
 const server = spawn(process.execPath, [wrangler, "dev", "--local", "--port", String(port), "--var", `ADMIN_AUTH_SECRET_1:${secret1}`, "--var", `ADMIN_AUTH_SECRET_2:${secret2}`, "--var", `SESSION_PEPPER:${pepper}`, "--var", "ENVIRONMENT:test"], { cwd:projectDir, env:process.env, stdio:"ignore" });
+server.unref();
 const cookies = new Map();
 const check = (condition, label) => { if (!condition) throw new Error(`Échec: ${label}`); process.stdout.write(`✓ ${label}\n`); };
 const req = async (path, { method="GET", body, raw=false }={}) => {
@@ -54,5 +55,5 @@ try {
   process.stdout.write("V2 admin applicants integration: OK\n");
 } finally {
   if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(server.pid), "/T", "/F"], {stdio:"ignore"}); else server.kill("SIGTERM");
-  if (applicantId) spawnSync(process.execPath, [wrangler, "d1", "execute", "workcrute", "--local", "--command", `DELETE FROM v2_applicants WHERE id='${applicantId.replaceAll("'","''")}'`], {cwd:projectDir,stdio:"ignore"});
+  if (applicantId) executeLocalSql(`DELETE FROM v2_applicants WHERE id='${applicantId.replaceAll("'","''")}'`);
 }

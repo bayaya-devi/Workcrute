@@ -4,64 +4,25 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="robots" content="noindex,nofollow">
-    <title>Centre de contrôle Workcrute</title>
+    <title>Tableau de bord Workcrute</title>
     <link rel="stylesheet" href="../../admin-system.css">
   </head>
   <body class="admin-body" data-admin-page="dashboard">
     <template data-admin-content>
-      <header class="adm-head adm-dashboard-head">
-        <div>
-          <span class="adm-kicker" data-dashboard-copy="kicker">Supervision de la plateforme</span>
-          <h1 data-dashboard-copy="title">Centre de contrôle Workcrute</h1>
-          <p data-dashboard-copy="subtitle">Indicateurs réels et activité récente de la plateforme.</p>
-        </div>
-        <div class="adm-live-state" data-live-state role="status" aria-live="polite">
-          <i aria-hidden="true"></i><span data-dashboard-copy="connecting">Connexion…</span>
-        </div>
+      <header class="adm-head">
+        <div><span class="adm-kicker" data-v2-dashboard="kicker">Pilotage opérationnel</span><h1 data-v2-dashboard="title">Tableau de bord</h1><p data-v2-dashboard="subtitle">Vue réelle des dossiers, des employés et des congés.</p></div>
+        <button class="adm-button secondary" type="button" data-v2-refresh data-v2-dashboard="refresh">Actualiser</button>
       </header>
-
-      <section class="adm-card adm-system-card" aria-labelledby="system-title">
-        <div class="adm-section-head">
-          <div>
-            <h2 id="system-title" data-dashboard-copy="system">État du système</h2>
-            <p data-dashboard-copy="systemHelp">Contrôles techniques exécutés côté serveur.</p>
-          </div>
-          <span class="adm-system-status loading" data-system-status>—</span>
-        </div>
-        <div class="adm-checks" data-system-checks aria-live="polite">
-          <span class="adm-skeleton"></span><span class="adm-skeleton"></span>
-          <span class="adm-skeleton"></span><span class="adm-skeleton"></span>
-        </div>
-      </section>
-
-      <section aria-labelledby="platform-title" class="adm-dashboard-section">
-        <div class="adm-section-head"><h2 id="platform-title" data-dashboard-copy="platform">Plateforme</h2></div>
-        <div class="adm-grid adm-dashboard-stats" data-total-stats aria-live="polite"></div>
-      </section>
-
-      <section aria-labelledby="today-title" class="adm-dashboard-section">
-        <div class="adm-section-head">
-          <div><h2 id="today-title" data-dashboard-copy="today">Statistiques du jour</h2><p data-dashboard-copy="utcNote">Calculées depuis minuit UTC.</p></div>
-        </div>
-        <div class="adm-grid adm-today-stats" data-today-stats aria-live="polite"></div>
-      </section>
-
-      <section class="adm-card adm-activity-card" aria-labelledby="activity-title">
-        <div class="adm-section-head">
-          <div><h2 id="activity-title" data-dashboard-copy="activity">Activité en direct</h2><p data-dashboard-copy="activityHelp">Nouveaux événements ajoutés sans recharger la page.</p></div>
-          <button class="adm-button secondary adm-retry" type="button" data-dashboard-retry hidden data-dashboard-copy="retry">Réessayer</button>
-        </div>
-        <div class="adm-filter-scroll" role="group" aria-label="Filtres d’activité" data-filter-label>
-          <div class="adm-filters" data-activity-filters></div>
-        </div>
-        <div class="adm-activity-feed" data-activity-feed aria-live="polite" aria-busy="true">
-          <div class="adm-activity-loading"><span class="adm-skeleton"></span><span class="adm-skeleton"></span><span class="adm-skeleton"></span></div>
-        </div>
-      </section>
+      <div class="adm-v2-stats" data-v2-dashboard-stats aria-live="polite" aria-busy="true"></div>
+      <div class="adm-v2-dashboard-grid">
+        <section class="adm-card adm-v2-dashboard-panel" aria-labelledby="recent-applicants-title"><div class="adm-section-head"><div><h2 id="recent-applicants-title" data-v2-dashboard="recentApplicants">Derniers postulants</h2><p data-v2-dashboard="recentHelp">Dossiers déposés récemment.</p></div><a class="adm-button secondary" href="/admin/postulants/" data-v2-dashboard="viewAll">Tout voir</a></div><div data-v2-recent-applicants aria-live="polite"></div></section>
+        <section class="adm-card adm-v2-dashboard-panel" aria-labelledby="leave-title"><div class="adm-section-head"><div><h2 id="leave-title" data-v2-dashboard="leave">Congés à traiter</h2><p data-v2-dashboard="leaveHelp">Demandes en attente de décision.</p></div><a class="adm-button secondary" href="/admin/conges/" data-v2-dashboard="manage">Gérer</a></div><div data-v2-pending-leave aria-live="polite"></div></section>
+      </div>
+      <div class="adm-error" data-v2-dashboard-error role="alert" hidden></div>
     </template>
     <script src="../../admin-layout.js"></script>
     <script src="../../admin-i18n.js"></script>
     <script src="../../admin-control-center.js"></script>
-    <script src="../../admin-dashboard.js"></script>
+    <script src="../../admin-v2-dashboard.js"></script>
   </body>
 </html>

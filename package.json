@@ -28,6 +28,7 @@
     "test:v2-responsive": "node scripts/test-v2-responsive.mjs",
     "test:v2-quality": "node scripts/test-v2-quality.mjs",
     "test:v2-security": "node scripts/test-v2-security.mjs",
+    "test:v2-all": "node scripts/test-v2-applicants.mjs && node scripts/test-v2-admin-applicants.mjs && node scripts/test-v2-auth.mjs && node scripts/test-v2-employees.mjs && node scripts/test-v2-leave.mjs && node scripts/test-v2-i18n.mjs && node scripts/test-v2-retirement.mjs && node scripts/test-v2-responsive.mjs && node scripts/test-v2-quality.mjs && node scripts/test-v2-security.mjs",
     "seed:demo": "node scripts/seed-demo.js"
   },
   "devDependencies": {

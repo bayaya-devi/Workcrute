@@ -1,11 +1,13 @@
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { executeLocalSql } from "./local-d1.mjs";
 
 const legacy1=`A1!${randomBytes(18).toString("base64url")}`,legacy2=`B2!${randomBytes(18).toString("base64url")}`,password=`V2!${randomBytes(18).toString("base64url")}`,pepper=randomBytes(32).toString("hex"),port=8798,base=`http://127.0.0.1:${port}`;
 const wrangler=fileURLToPath(new URL("../node_modules/wrangler/bin/wrangler.js",import.meta.url)),projectDir=fileURLToPath(new URL("..",import.meta.url));
-const clean=spawnSync(process.execPath,[wrangler,"d1","execute","workcrute","--local","--command","DELETE FROM v2_sessions; DELETE FROM v2_login_attempts; DELETE FROM v2_accounts; DELETE FROM admin_sessions; DELETE FROM admin_auth_challenges; DELETE FROM admin_rate_limits; UPDATE admin_security_config SET secret_1_hash=NULL,secret_1_salt=NULL,secret_2_hash=NULL,secret_2_salt=NULL WHERE id=1"],{cwd:projectDir,stdio:"ignore"});if(clean.status!==0)throw new Error("Base locale indisponible");
+executeLocalSql("DELETE FROM v2_sessions; DELETE FROM v2_login_attempts; DELETE FROM v2_accounts; DELETE FROM admin_sessions; DELETE FROM admin_auth_challenges; DELETE FROM admin_rate_limits; UPDATE admin_security_config SET secret_1_hash=NULL,secret_1_salt=NULL,secret_2_hash=NULL,secret_2_salt=NULL WHERE id=1");
 const server=spawn(process.execPath,[wrangler,"dev","--local","--port",String(port),"--var",`ADMIN_AUTH_SECRET_1:${legacy1}`,"--var",`ADMIN_AUTH_SECRET_2:${legacy2}`,"--var",`SESSION_PEPPER:${pepper}`,"--var","ENVIRONMENT:test"],{cwd:projectDir,env:process.env,stdio:"ignore"});
+server.unref();
 let cookies=new Map();
 const check=(ok,label)=>{if(!ok)throw new Error(`Échec: ${label}`);process.stdout.write(`✓ ${label}\n`);};
 async function req(path,{method="GET",body,ip="198.51.100.81"}={}){const response=await fetch(base+path,{method,headers:{...(body===undefined?{}:{"content-type":"application/json"}),"x-forwarded-for":ip,cookie:[...cookies].map(([key,value])=>`${key}=${value}`).join("; ")},body:body===undefined?undefined:JSON.stringify(body)});const set=response.headers.get("set-cookie")||"";for(const match of set.matchAll(/(wc_(?:admin_(?:session|challenge)|v2_session))=([^;,]*)/g))match[2]?cookies.set(match[1],match[2]):cookies.delete(match[1]);return{response,data:await response.json().catch(()=>({}))};}
