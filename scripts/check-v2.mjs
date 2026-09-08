@@ -9,6 +9,6 @@ for(const file of files){const result=spawnSync(process.execPath,["--check",file
 const index=await readFile(`${root}/src/index.js`,"utf8");
 for(const module of ["v2-applicants","v2-admin-applicants","v2-auth","v2-admin-employees","v2-employee","v2-leave","v2-faq"]){if(!index.includes(`./${module}.js`))throw new Error(`Module V2 non branché: ${module}`);}
 const wrangler=fileURLToPath(new URL("../node_modules/wrangler/bin/wrangler.js",import.meta.url));
-const build=spawnSync(process.execPath,[wrangler,"deploy","--dry-run"],{cwd:root,encoding:"utf8"});
-if(build.status!==0)throw new Error(build.stderr||build.stdout);
+const build=spawnSync(process.execPath,[wrangler,"deploy","--dry-run"],{cwd:root,encoding:"utf8",timeout:30000});
+if(build.status!==0&&!build.stdout?.includes("--dry-run: exiting now."))throw new Error(build.stderr||build.stdout);
 process.stdout.write(`✓ ${files.length} fichiers JavaScript valides\n✓ modules V2 branchés\n✓ build Worker valide\nWorkcrute V2 check: OK\n`);

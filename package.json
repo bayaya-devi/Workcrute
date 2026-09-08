@@ -26,6 +26,7 @@
     "test:v2-i18n": "node scripts/test-v2-i18n.mjs",
     "test:v2-retirement": "node scripts/test-v2-retirement.mjs",
     "test:v2-responsive": "node scripts/test-v2-responsive.mjs",
+    "test:v2-quality": "node scripts/test-v2-quality.mjs",
     "seed:demo": "node scripts/seed-demo.js"
   },
   "devDependencies": {

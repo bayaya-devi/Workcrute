@@ -16,9 +16,9 @@
   --wc-info: #3b82f6;
   --wc-neutral: #94a3b8;
   --wc-shadow: 0 12px 32px rgb(15 23 42 / 8%);
-  --wc-radius-sm: 10px;
-  --wc-radius: 14px;
-  --wc-radius-lg: 20px;
+  --wc-radius-sm: 6px;
+  --wc-radius: 8px;
+  --wc-radius-lg: 8px;
   --wc-container: 1240px;
 }
 
@@ -49,13 +49,13 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .wc-section--tint { background: var(--wc-primary-light); }
 .wc-section-head { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-block-end: 32px; }
 .wc-section-head > div { max-width: 720px; }
-.wc-eyebrow { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 12px; color: var(--wc-primary); font-size: 13px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-h1, h2, h3 { color: var(--wc-dark); line-height: 1.14; letter-spacing: -.025em; }
-h1 { margin: 0 0 20px; font-size: clamp(2rem, 5vw, 3rem); }
-h2 { margin: 0 0 16px; font-size: clamp(1.75rem, 4vw, 2.25rem); }
+.wc-eyebrow { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 12px; color: var(--wc-primary); font-size: 13px; font-weight: 800; letter-spacing: 0; text-transform: uppercase; }
+h1, h2, h3 { color: var(--wc-dark); line-height: 1.14; letter-spacing: 0; }
+h1 { margin: 0 0 20px; font-size: 48px; }
+h2 { margin: 0 0 16px; font-size: 36px; }
 h3 { margin: 0 0 8px; font-size: 1.18rem; }
 p { margin-block: 0 16px; }
-.wc-lead { color: var(--wc-muted); font-size: clamp(1rem, 2vw, 1.125rem); }
+.wc-lead { color: var(--wc-muted); font-size: 18px; }
 .wc-muted { color: var(--wc-muted); }
 
 .wc-button {
@@ -301,6 +301,9 @@ html[dir="rtl"] .wc-message--user { border-radius: 12px 12px 12px 3px; }
 @media (max-width: 600px) {
   .wc-container { width: min(calc(100% - 24px), var(--wc-container)); }
   .wc-section { padding-block: 52px; }
+  h1 { font-size: 32px; }
+  h2 { font-size: 28px; }
+  .wc-lead { font-size: 16px; }
   .wc-section-head { align-items: flex-start; flex-direction: column; }
   .wc-hero { padding-block-start: 42px; }
   .wc-hero h1 { font-size: 2rem; }

@@ -274,11 +274,26 @@ Statut : `VALIDATED`
 
 ## PHASE 13 - Performance et accessibilite
 
-Statut : `IN_PROGRESS`
+Statut : `VALIDATED`
+
+### Realise
+
+- Suppression des bundles historiques `client.js` et `local-api.js` des quatre pages publiques V2 actives.
+- Bootstrap V2 leger pour la configuration publique et les appels API.
+- JavaScript initial non compresse de l'accueil ramene a environ 80 Ko.
+- Cache navigateur explicite pour CSS et JavaScript, cache long pour les assets nommes.
+- Focus clavier visible, zones d'erreur focalisables, libelle des avantages traduit et prise en charge de `prefers-reduced-motion`.
+- Typographie stabilisee sans taille liee a la largeur du viewport et rayons de cartes limites a 8 px.
+
+### Validation
+
+- Test statique performance/accessibilite sur Accueil, Connexion, Postuler et Aide.
+- Revalidation i18n, responsive navigateur et build Worker.
+- Le serveur Chrome DevTools MCP optionnel n'etait pas configure ; les controles ont ete executes directement via Chrome DevTools Protocol et analyse des assets.
 
 ## PHASE 14 - Revue de securite
 
-Statut : `NOT_STARTED`
+Statut : `IN_PROGRESS`
 
 ## PHASE 15 - Recette finale
 
