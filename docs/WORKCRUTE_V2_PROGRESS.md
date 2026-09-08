@@ -334,10 +334,16 @@ Statut : `BLOCKED`
 
 ### Blocages externes avant validation production
 
-- L'authentification Cloudflare locale a expire : Wrangler exige `CLOUDFLARE_API_TOKEN` en execution non interactive. Le dernier commit ne peut donc pas etre deploye ni verifie sur Pages et Workers depuis cette session.
 - Le modele de facture reel n'a pas ete fourni ; l'espace employe conserve un etat vide honnete.
-- Les secrets du fournisseur e-mail (`EMAIL_PROVIDER_API_KEY` et `EMAIL_FROM`, ou binding equivalent) ne peuvent pas etre verifies sans acces Cloudflare.
+- Les secrets du fournisseur e-mail (`EMAIL_PROVIDER_API_KEY` et `EMAIL_FROM`, ou binding equivalent) sont absents de la production Cloudflare. La file d'attente et les nouvelles tentatives sont implementees, mais l'envoi reel exige ces deux valeurs ou un binding Email configure.
 - L'identite legale complete de l'exploitant et son contact officiel doivent etre fournis avant ouverture commerciale.
 - L'identite administrateur V2 definitive doit etre choisie par l'exploitant depuis la page protegee, sans inscrire de mot de passe dans le depot.
 
-Ces points exigent des donnees ou autorisations exterieures et ne peuvent pas etre inventes. Toute l'implementation et toute la recette locale raisonnablement executables sont terminees.
+### Production
+
+- Worker deploye : version `2751fdce-9239-4fab-8733-a86688a58d44` sur `https://workcrute.aetbconseil.workers.dev`.
+- Pages deploye : `https://4a658579.workcrute.pages.dev`, alias principal `https://workcrute.pages.dev`.
+- Accueil, Connexion, Postuler, Aide, FAQ API et Worker verifies en HTTP 200.
+- Contenu V2, tableau de bord admin V2, CSP et redirection des anciennes routes verifies en production.
+
+Ces points restants exigent des donnees exterieures et ne peuvent pas etre inventes. Toute l'implementation et toute la recette raisonnablement executables sont terminees et deployees.
