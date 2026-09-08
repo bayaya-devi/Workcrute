@@ -312,4 +312,32 @@ Statut : `VALIDATED`
 
 ## PHASE 15 - Recette finale
 
-Statut : `IN_PROGRESS`
+Statut : `BLOCKED`
+
+### Realise
+
+- Recette integree unique `npm run test:v2-all` couvrant le depot de CV, le traitement admin, l'authentification commune, les employes, les conges, le trilingue, le retrait de l'ancien modele, le responsive, la qualite et la securite.
+- Tableau de bord administrateur migre vers les donnees V2 reelles : postulants, nouveaux dossiers, employes actifs et conges en attente.
+- Pages A propos, legales et erreurs 403/404/500 alignees sur le shell public V2, les trois langues et le RTL.
+- Nettoyage des derniers bundles historiques sur toutes les pages publiques actives et liees depuis le footer.
+- Stabilisation des tests D1 locaux et du controle Chrome multi-largeurs sous Windows.
+- Commit fonctionnel final : `25b0736`.
+
+### Validation reussie
+
+- `npm run test:v2-all` : succes complet.
+- `npm run check` : 94 fichiers JavaScript valides, modules V2 branches et build Worker valide.
+- Chrome DevTools Protocol : aucun debordement sur Accueil, Connexion, Postuler et Aide en 320, 375, 390, 430, 768, 1024, 1440 et 1920 px.
+- FR, EN, AR et RTL controles statiquement sur le public, le Control Center et l'espace employe.
+- `npm audit --omit=dev` : aucune vulnerabilite connue.
+- Depot GitHub confirme `PUBLIC` : `https://github.com/bayaya-devi/Workcrute`.
+
+### Blocages externes avant validation production
+
+- L'authentification Cloudflare locale a expire : Wrangler exige `CLOUDFLARE_API_TOKEN` en execution non interactive. Le dernier commit ne peut donc pas etre deploye ni verifie sur Pages et Workers depuis cette session.
+- Le modele de facture reel n'a pas ete fourni ; l'espace employe conserve un etat vide honnete.
+- Les secrets du fournisseur e-mail (`EMAIL_PROVIDER_API_KEY` et `EMAIL_FROM`, ou binding equivalent) ne peuvent pas etre verifies sans acces Cloudflare.
+- L'identite legale complete de l'exploitant et son contact officiel doivent etre fournis avant ouverture commerciale.
+- L'identite administrateur V2 definitive doit etre choisie par l'exploitant depuis la page protegee, sans inscrire de mot de passe dans le depot.
+
+Ces points exigent des donnees ou autorisations exterieures et ne peuvent pas etre inventes. Toute l'implementation et toute la recette locale raisonnablement executables sont terminees.
