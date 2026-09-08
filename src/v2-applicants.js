@@ -39,7 +39,7 @@ async function digest(value) {
     .join("");
 }
 
-function validFile(file, required) {
+async function validFile(file, required) {
   if (!(file instanceof File) || !file.size) {
     return required ? "required" : null;
   }
@@ -48,6 +48,13 @@ function validFile(file, required) {
     return "type";
   }
   if (file.size > MAX_FILE_BYTES) return "size";
+  const header = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+  const signatures = {
+    pdf: [0x25, 0x50, 0x44, 0x46, 0x2d],
+    doc: [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1],
+    docx: [0x50, 0x4b],
+  };
+  if (!signatures[extension].every((byte, index) => header[index] === byte)) return "content";
   return null;
 }
 
@@ -114,6 +121,13 @@ export async function submitV2Applicant(request, env) {
   if (request.method !== "POST") {
     return fail("METHOD_NOT_ALLOWED", "Action non prise en charge.", 405);
   }
+  const contentLength = Number(request.headers.get("content-length") || 0);
+  if (contentLength > MAX_FILE_BYTES * 2 + 128 * 1024) {
+    return fail("PAYLOAD_TOO_LARGE", "Les documents envoyés sont trop volumineux.", 413);
+  }
+  if (!request.headers.get("content-type")?.toLowerCase().startsWith("multipart/form-data")) {
+    return fail("UNSUPPORTED_MEDIA_TYPE", "Le formulaire envoyé n’est pas valide.", 415);
+  }
   if (!(await enforceRateLimit(request, env))) {
     return fail(
       "RATE_LIMITED",
@@ -172,8 +186,8 @@ export async function submitV2Applicant(request, env) {
 
   const cv = form.get("cv");
   const coverLetter = form.get("coverLetter");
-  const cvError = validFile(cv, true);
-  const coverError = validFile(coverLetter, false);
+  const cvError = await validFile(cv, true);
+  const coverError = await validFile(coverLetter, false);
   if (cvError) fields.cv = cvError;
   if (coverError) fields.coverLetter = coverError;
   if (Object.keys(fields).length) {
@@ -187,7 +201,10 @@ export async function submitV2Applicant(request, env) {
 
   let answers = {};
   try {
-    answers = JSON.parse(String(form.get("answers") || "{}"));
+    const rawAnswers = String(form.get("answers") || "{}");
+    if (rawAnswers.length > 5000) throw new Error("ANSWERS_TOO_LARGE");
+    answers = JSON.parse(rawAnswers);
+    if (!answers || Array.isArray(answers) || typeof answers !== "object") throw new Error("ANSWERS_INVALID");
   } catch {
     return fail("VALIDATION_ERROR", "Les réponses au questionnaire sont invalides.", 422);
   }

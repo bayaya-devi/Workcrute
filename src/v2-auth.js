@@ -157,8 +157,8 @@ export async function configureV2Admin(request, env) {
   const firstName = clean(body.firstName);
   const lastName = clean(body.lastName);
   const password = typeof body.password === "string" ? body.password : "";
-  if (!firstName || !lastName || password.length < 4 || password.length > 256) {
-    return bad("Nom, prénom et mot de passe de 4 caractères minimum sont obligatoires.", 422);
+  if (!firstName || !lastName || password.length < 12 || password.length > 256) {
+    return bad("Nom, prénom et mot de passe de 12 caractères minimum sont obligatoires.", 422);
   }
   const collision = await env.DB.prepare(
     "SELECT id FROM v2_accounts WHERE first_name_normalized=? AND last_name_normalized=? AND role<>'admin'",

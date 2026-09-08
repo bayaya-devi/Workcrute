@@ -293,8 +293,23 @@ Statut : `VALIDATED`
 
 ## PHASE 14 - Revue de securite
 
-Statut : `IN_PROGRESS`
+Statut : `VALIDATED`
+
+### Realise
+
+- Taille du multipart controlee avant parsing et type `multipart/form-data` impose.
+- Signature binaire des PDF, DOC et DOCX verifiee en plus du nom et du MIME.
+- Reponses de questionnaire limitees en taille et a un objet JSON.
+- Mot de passe administrateur porte a 12 caracteres minimum ; le mot de passe employe reste volontairement libre mais hashe.
+- Nom employe echappe avant insertion dans le tableau de bord.
+- CSP, isolation de fenetre et politique de ressources ajoutees aux en-tetes Pages.
+
+### Validation
+
+- Test d'integration d'un faux PDF : rejet HTTP 422 confirme.
+- Cookies `HttpOnly`, `Secure`, `SameSite=Lax`, PBKDF2 et absence de secrets codes en dur controles statiquement.
+- `npm audit --omit=dev` : aucune vulnerabilite de dependance detectee.
 
 ## PHASE 15 - Recette finale
 
-Statut : `NOT_STARTED`
+Statut : `IN_PROGRESS`
