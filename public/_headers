@@ -1,5 +1,4 @@
 /*
-  Cache-Control: no-cache, must-revalidate
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
@@ -8,6 +7,33 @@
   Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://workcrute.aetbconseil.workers.dev; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
+
+/
+  Cache-Control: no-cache, must-revalidate
+
+/connexion/*
+  Cache-Control: no-cache, must-revalidate
+
+/postuler/*
+  Cache-Control: no-cache, must-revalidate
+
+/aide/*
+  Cache-Control: no-cache, must-revalidate
+
+/a-propos/*
+  Cache-Control: no-cache, must-revalidate
+
+/mentions-legales/*
+  Cache-Control: no-cache, must-revalidate
+
+/confidentialite/*
+  Cache-Control: no-cache, must-revalidate
+
+/conditions/*
+  Cache-Control: no-cache, must-revalidate
+
+/employe/*
+  Cache-Control: no-store
 
 /assets/*
   Cache-Control: public, max-age=3600, must-revalidate
