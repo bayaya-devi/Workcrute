@@ -1,0 +1,4 @@
+CREATE TABLE v2_holiday_calendars (
+  year INTEGER PRIMARY KEY,
+  seeded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

@@ -19,7 +19,7 @@ async function detail(env,id){const item=await env.DB.prepare(`SELECT ${publicFi
 async function uniqueIdentity(env,firstName,lastName,exclude=""){return env.DB.prepare("SELECT id FROM v2_accounts WHERE first_name_normalized=? AND last_name_normalized=? AND id<>?").bind(normalize(firstName),normalize(lastName),exclude).first();}
 async function create(request,env){
   const body=await request.json().catch(()=>({})),firstName=clean(body.firstName,100),lastName=clean(body.lastName,100),password=typeof body.password==="string"?body.password:"",jobTitle=clean(body.jobTitle,160);
-  if(!firstName||!lastName||!password||password.length>256||!jobTitle)return bad("Nom, prénom, mot de passe et fonction sont obligatoires.",422);
+  if(!firstName||!lastName||!password||password.length>256)return bad("Nom, prénom et mot de passe sont obligatoires.",422);
   if(await uniqueIdentity(env,firstName,lastName))return bad("Cette identité de connexion est déjà utilisée.",409);
   const id=crypto.randomUUID(),salt=token();
   await env.DB.batch([

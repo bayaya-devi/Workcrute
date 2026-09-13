@@ -1,14 +1,13 @@
 (() => {
-  if (!window.WorkcruteErrors && !document.querySelector('script[data-error-system]')) { const script=document.createElement("script");script.dataset.errorSystem="";script.src="/error-system.js";document.head.append(script); }
   const messages = {
     fr: {
       referrals: "Transmissions",
       chatbot: "Chatbot / FAQ",
-      dashboard: "Centre de contrôle",
+      dashboard: "Tableau de bord",
       activity: "Activité",
       candidates: "Candidats",
       applicants: "Postulants",
-      employees: "Employés",
+      employees: "Ouvriers",
       leave: "Congés",
       recruiters: "Recruteurs",
       companies: "Entreprises",
@@ -26,12 +25,12 @@
       search: "Rechercher un candidat, recruteur, email, offre ou ID…",
       administrator: "Administrateur",
       control: "Workcrute Control Center",
-      v2_employees_title:"Employés",v2_employees_copy:"Créez et gérez les accès des employés. Aucun employé ne peut s’inscrire lui-même.",v2_create_employee:"Créer un employé",v2_search:"Rechercher",v2_employee_search:"Nom, e-mail ou fonction",v2_status:"Statut",v2_all:"Tous",v2_active:"Actif",v2_disabled:"Désactivé",v2_filter:"Filtrer",v2_leave_title:"Congés",v2_leave_copy:"Traitez les demandes et configurez les jours fériés exclus du calcul.",v2_requests:"Demandes",v2_holidays:"Jours fériés",v2_date:"Date",v2_label:"Libellé",v2_add:"Ajouter",v2_identity_title:"Identité de connexion",v2_identity_copy:"Configurez l’unique compte administrateur utilisé sur la page de connexion publique.",v2_first_name:"Prénom",v2_last_name:"Nom",v2_new_password:"Nouveau mot de passe",v2_confirmation:"Confirmation",v2_save_identity:"Enregistrer l’identité V2",v2_job_title:"Fonction",v2_department:"Service",v2_email:"E-mail",v2_phone:"Téléphone",v2_hire_date:"Date d’entrée",v2_language:"Langue",v2_password:"Mot de passe",v2_cancel:"Annuler",v2_save:"Enregistrer",
+      v2_employees_title:"Ouvriers",v2_employees_copy:"Créez et gérez les accès des ouvriers. Aucun ouvrier ne peut s’inscrire lui-même.",v2_create_employee:"Créer un ouvrier",v2_search:"Rechercher",v2_employee_search:"Nom, e-mail ou fonction",v2_status:"Statut",v2_all:"Tous",v2_active:"Actif",v2_disabled:"Désactivé",v2_filter:"Filtrer",v2_leave_title:"Congés",v2_leave_copy:"Traitez les demandes et configurez les jours fériés exclus du calcul.",v2_requests:"Demandes",v2_holidays:"Jours fériés",v2_date:"Date",v2_label:"Libellé",v2_add:"Ajouter",v2_identity_title:"Identité de connexion",v2_identity_copy:"Configurez l’unique compte administrateur utilisé sur la page de connexion publique.",v2_first_name:"Prénom",v2_last_name:"Nom",v2_new_password:"Nouveau mot de passe",v2_confirmation:"Confirmation",v2_save_identity:"Enregistrer l’identité V2",v2_job_title:"Fonction",v2_department:"Service",v2_email:"E-mail",v2_phone:"Téléphone",v2_hire_date:"Date d’entrée",v2_language:"Langue",v2_password:"Mot de passe",v2_cancel:"Annuler",v2_save:"Enregistrer",
     },
     en: {
       referrals: "Referrals",
       chatbot: "Chatbot / FAQ",
-      dashboard: "Control Center",
+      dashboard: "Dashboard",
       activity: "Activity",
       candidates: "Candidates",
       applicants: "Applicants",
@@ -62,7 +61,7 @@
       activity: "النشاط",
       candidates: "المرشحون",
       applicants: "المتقدمون",
-      employees: "الموظفون",
+      employees: "العاملون",
       leave: "الإجازات",
       recruiters: "مسؤولو التوظيف",
       companies: "الشركات",
@@ -80,9 +79,15 @@
       search: "ابحث عن مرشح أو مسؤول توظيف أو بريد أو وظيفة أو معرّف…",
       administrator: "المسؤول",
       control: "مركز تحكم Workcrute",
-      v2_employees_title:"الموظفون",v2_employees_copy:"أنشئ صلاحيات الموظفين وأدرها. لا يمكن للموظف إنشاء حساب بنفسه.",v2_create_employee:"إنشاء موظف",v2_search:"بحث",v2_employee_search:"الاسم أو البريد أو الوظيفة",v2_status:"الحالة",v2_all:"الكل",v2_active:"نشط",v2_disabled:"معطّل",v2_filter:"تصفية",v2_leave_title:"الإجازات",v2_leave_copy:"عالج الطلبات واضبط أيام العطل المستثناة من الحساب.",v2_requests:"الطلبات",v2_holidays:"أيام العطل",v2_date:"التاريخ",v2_label:"التسمية",v2_add:"إضافة",v2_identity_title:"هوية تسجيل الدخول",v2_identity_copy:"اضبط حساب المسؤول الوحيد المستخدم في صفحة تسجيل الدخول العامة.",v2_first_name:"الاسم الشخصي",v2_last_name:"اسم العائلة",v2_new_password:"كلمة المرور الجديدة",v2_confirmation:"التأكيد",v2_save_identity:"حفظ هوية V2",v2_job_title:"الوظيفة",v2_department:"القسم",v2_email:"البريد الإلكتروني",v2_phone:"الهاتف",v2_hire_date:"تاريخ الالتحاق",v2_language:"اللغة",v2_password:"كلمة المرور",v2_cancel:"إلغاء",v2_save:"حفظ",
+      v2_employees_title:"العاملون",v2_employees_copy:"أنشئ صلاحيات العاملين وأدرها. لا يمكن للموظف إنشاء حساب بنفسه.",v2_create_employee:"إنشاء موظف",v2_search:"بحث",v2_employee_search:"الاسم أو البريد أو الوظيفة",v2_status:"الحالة",v2_all:"الكل",v2_active:"نشط",v2_disabled:"معطّل",v2_filter:"تصفية",v2_leave_title:"الإجازات",v2_leave_copy:"عالج الطلبات واضبط أيام العطل المستثناة من الحساب.",v2_requests:"الطلبات",v2_holidays:"أيام العطل",v2_date:"التاريخ",v2_label:"التسمية",v2_add:"إضافة",v2_identity_title:"هوية تسجيل الدخول",v2_identity_copy:"اضبط حساب المسؤول الوحيد المستخدم في صفحة تسجيل الدخول العامة.",v2_first_name:"الاسم الشخصي",v2_last_name:"اسم العائلة",v2_new_password:"كلمة المرور الجديدة",v2_confirmation:"التأكيد",v2_save_identity:"حفظ هوية V2",v2_job_title:"الوظيفة",v2_department:"القسم",v2_email:"البريد الإلكتروني",v2_phone:"الهاتف",v2_hire_date:"تاريخ الالتحاق",v2_language:"اللغة",v2_password:"كلمة المرور",v2_cancel:"إلغاء",v2_save:"حفظ",
     },
   };
+  Object.assign(messages.fr,{navigation:"Navigation",language:"Langue",skip:"Aller au contenu",loading:"Chargement…",logout_error:"La déconnexion a échoué. Réessayez."});
+  Object.assign(messages.en,{navigation:"Navigation",language:"Language",skip:"Skip to content",loading:"Loading…",logout_error:"Sign-out failed. Please retry."});
+  Object.assign(messages.ar,{navigation:"التنقل",language:"اللغة",skip:"الانتقال إلى المحتوى",loading:"جارٍ التحميل…",logout_error:"تعذّر تسجيل الخروج. حاول مجدداً."});
+  Object.assign(messages.fr,{v2_pending:"En attente",v2_approved:"Accepté",v2_refused:"Refusé",v2_cancelled:"Annulé"});
+  Object.assign(messages.en,{v2_pending:"Pending",v2_approved:"Approved",v2_refused:"Refused",v2_cancelled:"Cancelled"});
+  Object.assign(messages.ar,{v2_pending:"في الانتظار",v2_approved:"مقبول",v2_refused:"مرفوض",v2_cancelled:"ملغى"});
   const apply = (language) => {
     const lang = messages[language] ? language : "fr";
     localStorage.setItem("workcrute-admin-language", lang);
@@ -104,7 +109,7 @@
       .querySelectorAll("[data-admin-language]")
       .forEach((select) => (select.value = lang));
     document.dispatchEvent(
-      new CustomEvent("admin:language", { detail: { language: lang } }),
+      new CustomEvent("admin:language", { detail: { language: lang }, bubbles: true }),
     );
   };
   window.workcruteAdminI18n = { apply, messages };

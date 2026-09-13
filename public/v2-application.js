@@ -15,6 +15,13 @@
   let cvFile = null;
   let coverFile = null;
   let sending = false;
+  let questions=[];
+  const questionRoot=document.createElement("div");questionRoot.className="wc-form-grid";steps[1].append(questionRoot);
+  const translateQuestions=()=>questionRoot.querySelectorAll('[data-question-label]').forEach(node=>{const question=questions.find(item=>item.id===node.dataset.questionLabel);if(question)node.textContent=question['label_'+i18n.getLanguage()]+(question.required?' *':'');});
+  async function loadQuestions(){
+    next.disabled=true;
+    try{const response=await fetch(window.workcrute.apiUrl('/api/v2/questions'),{credentials:'omit'});if(!response.ok)throw new Error('questions');questions=(await response.json()).items;questionRoot.replaceChildren();questions.forEach(question=>{const label=document.createElement('label');label.className='wc-field';const text=document.createElement('span');text.dataset.questionLabel=question.id;const input=document.createElement(question.type==='textarea'?'textarea':'input');if(question.type!=='textarea')input.type=question.type;input.name='question_'+question.id;input.required=Boolean(question.required);if(['text','textarea'].includes(question.type))input.maxLength=4000;label.append(text,input);questionRoot.append(label);});translateQuestions();form.dataset.questionsReady='true';next.disabled=false;}catch{questionRoot.textContent=t('apply_submit_error');const retry=document.createElement('button');retry.type='button';retry.className='wc-button';retry.textContent=t('retry');retry.addEventListener('click',loadQuestions);questionRoot.append(retry);}
+  }
   const idempotencyKey =
     sessionStorage.getItem("workcrute_v2_submission_key") ||
     crypto.randomUUID().replaceAll("-", "");
@@ -71,9 +78,9 @@
 
   function validateCurrent() {
     let valid = true;
-    const required = [...steps[current].querySelectorAll("[required]")];
+    const required = [...steps[current].querySelectorAll("input,select,textarea")];
     required.forEach((field) => {
-      const fieldValid = field.type === "checkbox" ? field.checked : field.checkValidity();
+      const fieldValid = field.type === "checkbox" ? !field.required || field.checked : field.checkValidity();
       field.setAttribute("aria-invalid", String(!fieldValid));
       if (!fieldValid) valid = false;
     });
@@ -166,6 +173,7 @@
     data.append("consent", String(form.elements.consent.checked));
     data.append("idempotencyKey", idempotencyKey);
     data.append("answers", JSON.stringify({
+      ...Object.fromEntries(questions.map(question=>{const input=form.elements['question_'+question.id];return[question.id,question.type==='checkbox'?input.checked:input.value];})),
       workModes: [...form.querySelectorAll('[name="workMode"]:checked')].map((item) => item.value),
     }));
     data.append("cv", cvFile, cvFile.name);
@@ -203,10 +211,12 @@
   });
 
   document.addEventListener("workcrute:language", () => {
+    translateQuestions();
     if (current === 3) renderReview();
     if (displayedErrorKey) setError(t(displayedErrorKey));
     if (sending) submit.textContent = t("apply_sending");
   });
   restoreCv();
   showStep(0);
+  loadQuestions();
 })();

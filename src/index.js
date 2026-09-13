@@ -20,6 +20,7 @@ import {
   submitV2Applicant,
 } from "./v2-applicants.js";
 import { adminV2Applicants } from "./v2-admin-applicants.js";
+import { questionsApi } from "./v2-questions.js";
 import { adminV2Employees } from "./v2-admin-employees.js";
 import {
   configureV2Admin,
@@ -90,7 +91,7 @@ const multilingual = (value, max = 500, required = false) => {
   return required && (!result.fr || !result.en || !result.ar) ? null : result;
 };
 const cors = (request) => ({
-  "access-control-allow-origin": new URL(request.url).pathname === "/api/v2/applicants" && request.headers.get("origin") === "https://bayaya-devi.github.io"
+  "access-control-allow-origin": (new URL(request.url).pathname === "/api/v2/applicants" || (new URL(request.url).pathname === "/api/v2/questions" && request.method === "GET")) && request.headers.get("origin") === "https://bayaya-devi.github.io"
     ? "https://bayaya-devi.github.io" : new URL(request.url).origin,
   "vary": "Origin",
   "access-control-allow-credentials": "true",
@@ -3068,20 +3069,24 @@ async function reportFrontendError(request, env, requestId) {
   return json({ ok:true },202);
 }
 async function adminNotifications(request, env, path) {
+  const error=(message,status)=>json({userMessage:message},status);
   await requireAdmin(request, env);
-  if (request.method === "GET") {
-    const { results = [] } = await env.DB.prepare(
-      "SELECT id,category,title,body,severity,href,read_at,created_at FROM admin_notifications ORDER BY created_at DESC LIMIT 50",
-    ).all();
-    return json({ items: results });
+  if (path === "/api/admin/notifications" && request.method === "GET") {
+    const {results=[]}=await env.DB.prepare("SELECT id,category,title,body,severity,href,read_at,kept_at,created_at FROM admin_notifications ORDER BY created_at DESC LIMIT 100").all();
+    const count=await env.DB.prepare("SELECT COUNT(*) total FROM admin_notifications WHERE read_at IS NULL").first();
+    return json({items:results,unread:Number(count?.total || 0)});
   }
-  const id = path.split("/").filter(Boolean).pop();
-  await env.DB.prepare(
-    "UPDATE admin_notifications SET read_at=CURRENT_TIMESTAMP WHERE id=?",
-  )
-    .bind(id)
-    .run();
-  return json({ ok: true });
+  const match=path.match(/^\/api\/admin\/notifications\/([^/]+)$/);
+  if(!match)return error("Action invalide.",405);
+  let result;
+  if(request.method==="DELETE")result=await env.DB.prepare("DELETE FROM admin_notifications WHERE id=?").bind(match[1]).run();
+  else if(request.method==="PATCH"){
+    const body=await request.json().catch(()=>({}));
+    if(body.action!=="keep")return error("Action invalide.",422);
+    result=await env.DB.prepare("UPDATE admin_notifications SET kept_at=CURRENT_TIMESTAMP,read_at=COALESCE(read_at,CURRENT_TIMESTAMP) WHERE id=?").bind(match[1]).run();
+  } else return error("Méthode invalide.",405);
+  if(!result.meta?.changes)return error("Notification introuvable.",404);
+  return json({ok:true});
 }
 async function adminAuditList(request, env) {
   await requireAdmin(request, env);
@@ -5071,6 +5076,11 @@ export default {
         response = await adminAuthStepTwo(request, env);
       else if (path === "/api/admin/auth/me" && request.method === "GET")
         response = await adminMe(request, env);
+      else if (path === "/api/v2/questions" && request.method === "GET") response=await questionsApi(request,env,path);
+      else if (path === "/api/admin/v2/questions" || path.startsWith("/api/admin/v2/questions/")) {
+        await requireAdmin(request,env);
+        response=await questionsApi(request,env,path);
+      }
       else if (path === "/api/admin/v2/account") {
         await requireAdmin(request, env);
         response = await configureV2Admin(request, env);

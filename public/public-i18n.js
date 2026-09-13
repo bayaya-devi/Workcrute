@@ -96,6 +96,7 @@
   Object.assign(messages.en, { v2_ready_copy: "Add your resume and introduce your experience, with no registration required." });
   Object.assign(messages.ar, { v2_ready_copy: "أضف سيرتك الذاتية وعرّفنا بمسارك، دون تسجيل." });
   const supported = ["fr", "en", "ar"];
+  Object.assign(messages.fr,{retry:"Réessayer"});Object.assign(messages.en,{retry:"Retry"});Object.assign(messages.ar,{retry:"إعادة المحاولة"});
   Object.assign(messages.fr, { apply_cancel_confirm: "Abandonner cette candidature ? Les informations saisies seront supprimées.", apply_rate_error: "Trop de tentatives. Réessayez dans quelques minutes." });
   Object.assign(messages.en, { apply_cancel_confirm: "Cancel this application? Your entered information will be deleted.", apply_rate_error: "Too many attempts. Please try again in a few minutes." });
   Object.assign(messages.ar, { apply_cancel_confirm: "هل تريد إلغاء هذا الطلب؟ ستُحذف المعلومات التي أدخلتها.", apply_rate_error: "محاولات كثيرة. حاول مجدداً بعد بضع دقائق." });

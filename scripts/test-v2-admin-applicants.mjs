@@ -47,11 +47,35 @@ try {
   applicantId = result.data.items[0].id;
   result = await req(`/api/admin/v2/applicants/${applicantId}`);
   check(result.response.ok && result.data.documents.length === 1, "fiche et documents postulant");
+  result=await req('/api/admin/notifications');const notification=result.data.items.find(item=>item.body.includes(created.reference));
+  check(Boolean(notification)&&result.data.unread>0,"notification candidature réelle");
+  result=await req('/api/admin/notifications/'+notification.id,{method:'PATCH',body:{action:'keep'}});check(result.response.ok,"notification conservée");
+  result=await req('/api/admin/notifications');check(result.data.items.some(item=>item.id===notification.id&&item.kept_at&&item.read_at),"conservation persistante");
+  result=await req('/api/admin/notifications/'+notification.id,{method:'DELETE'});check(result.response.ok,"notification supprimée");
+  result=await req(`/api/admin/v2/applicants/${applicantId}`);
   const documentId = result.data.documents[0].id;
   result = await req(`/api/admin/v2/applicants/${applicantId}/documents/${documentId}`, {raw:true});
   check(result.response.ok && result.data.byteLength > 10, "téléchargement document protégé");
   result = await req(`/api/admin/v2/applicants/${applicantId}`, {method:"PATCH",body:{status:"reviewing",adminNotes:"Dossier vérifié"}});
-  check(result.response.ok && result.data.item.status === "reviewing" && result.data.history.length === 1, "statut, notes et historique");
+  check(result.response.ok && result.data.item.status === "reviewing" && result.data.history.some(entry=>entry.event_type==='status') && result.data.notes.length===1, "statut, notes et historique");
+  let question=await req('/api/admin/v2/questions',{method:'POST',body:{label_fr:'Expérience ?',label_en:'Experience?',label_ar:'الخبرة؟',type:'text',position:2,required:1,active:1}});
+  check(question.response.status===201,"création question trilingue");const questionId=question.data.id;
+  let publicQuestions=await fetch(base+'/api/v2/questions');check((await publicQuestions.json()).items.some(item=>item.id===questionId&&item.required),"configuration visible publiquement");
+  form.set('idempotencyKey',crypto.randomUUID().replaceAll('-',''));form.set('answers','{}');
+  let missing=await fetch(base+'/api/v2/applicants',{method:'POST',headers:{'x-forwarded-for':'198.51.100.73'},body:form});check(missing.status===422,"question obligatoire validée côté serveur");
+  question=await req('/api/admin/v2/questions/'+questionId,{method:'PATCH',body:{position:0,active:0}});check(question.response.ok,"ordre et activation modifiés");
+  question=await req('/api/admin/v2/questions/'+questionId,{method:'DELETE'});check(question.response.ok,"question supprimée sans perdre les réponses historiques");
+  result=await req(`/api/admin/v2/applicants/${applicantId}`);
+  result=await req(`/api/admin/v2/applicants/${applicantId}`,{method:"PATCH",body:{newNote:"Deuxième note"}});
+  check(result.response.ok && result.data.notes.length===2 && result.data.notes.some(note=>note.content==='Dossier vérifié') && result.data.notes.every(note=>note.created_at&&note.admin_identifier),"notes ajoutées sans écrasement");
+  for (const status of ["received","reviewing","shortlisted","interview","accepted","refused","archived"]) {
+    await req(`/api/admin/v2/applicants/${applicantId}`, {method:"PATCH",body:{status}});
+    result=await req(`/api/admin/v2/applicants?status=${status}&q=${encodeURIComponent(suffix)}`);
+    check(result.response.ok && result.data.items.length===1 && result.data.items.every(item=>item.status===status), `filtre exact ${status}`);
+    result=await req(`/api/admin/v2/applicants/${applicantId}`);
+    check(result.data.item.status===status,"statut persistant "+status);
+  }
+  result=await req('/api/admin/v2/applicants?status=invalid');check(result.response.status===422,"filtre invalide refusé");
   process.stdout.write("V2 admin applicants integration: OK\n");
 } finally {
   if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(server.pid), "/T", "/F"], {stdio:"ignore"}); else server.kill("SIGTERM");

@@ -3,9 +3,19 @@ const ALLOWANCE=21,statuses=new Set(["approved","refused"]);
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
 const bad=(message,status=400)=>json({userMessage:message},status);
 const clean=(value,max=1000)=>{const result=typeof value==="string"?value.trim():"";return result.length<=max?result:"";};
-const validDate=(value)=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&!Number.isNaN(Date.parse(value+"T00:00:00Z"));
+const validDate=(value)=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&!Number.isNaN(Date.parse(value+"T00:00:00Z"))&&new Date(value+"T00:00:00Z").toISOString().slice(0,10)===value;
+async function ensureFrenchHolidays(env,year) {
+  if(await env.DB.prepare("SELECT year FROM v2_holiday_calendars WHERE year=?").bind(Number(year)).first())return;
+  const response=await fetch(`https://raw.githubusercontent.com/etalab/jours-feries-france-data/master/data/json/metropole/${year}.json`,{signal:AbortSignal.timeout(8000)});
+  if(!response.ok)throw bad("Le calendrier officiel est momentanément indisponible.",503);
+  const calendar=await response.json();
+  const entries=Object.entries(calendar).filter(([date,label])=>validDate(date)&&date.startsWith(String(year))&&typeof label==="string");
+  if(entries.length<10)throw bad("Calendrier officiel incomplet.",503);
+  await env.DB.batch([...entries.map(([date,label])=>env.DB.prepare("INSERT OR IGNORE INTO v2_holidays(holiday_date,label) VALUES(?,?)").bind(date,label)),env.DB.prepare("INSERT OR IGNORE INTO v2_holiday_calendars(year) VALUES(?)").bind(Number(year))]);
+}
 async function workingDays(env,start,end){
   if(!validDate(start)||!validDate(end)||start>end||start.slice(0,4)!==end.slice(0,4))throw bad("Les dates doivent être valides et appartenir à la même année.",422);
+  await ensureFrenchHolidays(env,start.slice(0,4));
   const startDate=new Date(start+"T00:00:00Z"),endDate=new Date(end+"T00:00:00Z"),span=Math.round((endDate-startDate)/86400000);
   if(span>366)throw bad("La période est trop longue.",422);
   const {results=[]}=await env.DB.prepare("SELECT holiday_date FROM v2_holidays WHERE holiday_date BETWEEN ? AND ?").bind(start,end).all(),holidays=new Set(results.map(row=>row.holiday_date));let total=0;
@@ -33,11 +43,17 @@ async function employeeLeave(request,env,path){
   return bad("Action non prise en charge.",405);
 }
 async function adminLeave(request,env,path){
-  if(path==="/api/admin/v2/leave"&&request.method==="GET"){const url=new URL(request.url),status=clean(url.searchParams.get("status"),20),where=["pending","approved","refused","cancelled"].includes(status)?"WHERE r.status=?":"",query=`SELECT r.*,a.first_name,a.last_name,p.job_title FROM v2_leave_requests r JOIN v2_accounts a ON a.id=r.employee_account_id JOIN v2_employee_profiles p ON p.account_id=a.id ${where} ORDER BY r.created_at DESC LIMIT 300`,result=where?await env.DB.prepare(query).bind(status).all():await env.DB.prepare(query).all();return json({items:result.results||[]});}
-  if(path==="/api/admin/v2/holidays"&&request.method==="GET"){const {results=[]}=await env.DB.prepare("SELECT * FROM v2_holidays ORDER BY holiday_date").all();return json({items:results});}
+  if(path==="/api/admin/v2/leave"&&request.method==="GET"){const url=new URL(request.url),status=clean(url.searchParams.get("status"),20),where=["pending","approved","refused","cancelled"].includes(status)?"WHERE r.status=?":"",query=`SELECT r.*,a.first_name,a.last_name,p.job_title,MAX(0,21-COALESCE((SELECT SUM(working_days) FROM v2_leave_requests used WHERE used.employee_account_id=r.employee_account_id AND used.status=\'approved\' AND substr(used.start_date,1,4)=substr(r.start_date,1,4)),0)) remaining_balance FROM v2_leave_requests r JOIN v2_accounts a ON a.id=r.employee_account_id JOIN v2_employee_profiles p ON p.account_id=a.id ${where} ORDER BY r.created_at DESC LIMIT 300`,result=where?await env.DB.prepare(query).bind(status).all():await env.DB.prepare(query).all();return json({items:result.results||[]});}
+  if(path==="/api/admin/v2/holidays"&&request.method==="GET"){const year=Number(new URL(request.url).searchParams.get("year") || new Date().getUTCFullYear());if(!Number.isInteger(year)||year<2000||year>2100)return bad("Année invalide.",422);await ensureFrenchHolidays(env,year);const {results=[]}=await env.DB.prepare("SELECT * FROM v2_holidays ORDER BY holiday_date").all();return json({items:results});}
   if(path==="/api/admin/v2/holidays"&&request.method==="POST"){const body=await request.json().catch(()=>({})),date=clean(body.date,10),label=clean(body.label,120);if(!validDate(date)||!label)return bad("Date et libellé obligatoires.",422);await env.DB.prepare("INSERT INTO v2_holidays(holiday_date,label) VALUES(?,?) ON CONFLICT(holiday_date) DO UPDATE SET label=excluded.label").bind(date,label).run();return json({ok:true},201);}
-  const holiday=path.match(/^\/api\/admin\/v2\/holidays\/(\d{4}-\d{2}-\d{2})$/);if(holiday&&request.method==="DELETE"){await env.DB.prepare("DELETE FROM v2_holidays WHERE holiday_date=?").bind(holiday[1]).run();return new Response(null,{status:204});}
-  const match=path.match(/^\/api\/admin\/v2\/leave\/([^/]+)$/);if(match&&request.method==="PATCH"){const current=await env.DB.prepare("SELECT * FROM v2_leave_requests WHERE id=?").bind(match[1]).first();if(!current)return bad("Demande introuvable.",404);if(current.status!=="pending")return bad("Cette demande a déjà été traitée.",409);const body=await request.json().catch(()=>({})),next=clean(body.status,20);if(!statuses.has(next))return bad("Décision invalide.",422);const days=await workingDays(env,current.start_date,current.end_date);if(next==="approved"){const currentBalance=await balance(env,current.employee_account_id,current.start_date.slice(0,4));if(days>currentBalance.remaining)return bad("Le solde disponible est insuffisant.",409);}await env.DB.prepare("UPDATE v2_leave_requests SET status=?,working_days=?,admin_comment=?,reviewed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(next,days,clean(body.adminComment)||null,current.id).run();return json({ok:true});}
+  const holiday=path.match(/^\/api\/admin\/v2\/holidays\/(\d{4}-\d{2}-\d{2})$/);
+  if(holiday&&request.method==="PUT") {
+    const body=await request.json().catch(()=>({})),date=clean(body.date,10),label=clean(body.label,120);
+    if(!validDate(date)||!label)return bad("Date et libellé obligatoires.",422);
+    try { const result=await env.DB.prepare("UPDATE v2_holidays SET holiday_date=?,label=? WHERE holiday_date=?").bind(date,label,holiday[1]).run();return result.meta?.changes?json({ok:true}):bad("Jour férié introuvable.",404); } catch { return bad("Cette date est déjà configurée.",409); }
+  }
+  if(holiday&&request.method==="DELETE"){await env.DB.prepare("DELETE FROM v2_holidays WHERE holiday_date=?").bind(holiday[1]).run();return new Response(null,{status:204});}
+  const match=path.match(/^\/api\/admin\/v2\/leave\/([^/]+)$/);if(match&&request.method==="PATCH"){const current=await env.DB.prepare("SELECT * FROM v2_leave_requests WHERE id=?").bind(match[1]).first();if(!current)return bad("Demande introuvable.",404);if(current.status!=="pending")return bad("Cette demande a déjà été traitée.",409);const body=await request.json().catch(()=>({})),next=clean(body.status,20);if(!statuses.has(next))return bad("Décision invalide.",422);const days=await workingDays(env,current.start_date,current.end_date);if(next==="approved"){const currentBalance=await balance(env,current.employee_account_id,current.start_date.slice(0,4));if(days>currentBalance.remaining)return bad("Le solde disponible est insuffisant.",409);}const result=await env.DB.prepare("UPDATE v2_leave_requests SET status=?,working_days=?,admin_comment=?,reviewed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status=\'pending\' AND (?<>\'approved\' OR COALESCE((SELECT SUM(working_days) FROM v2_leave_requests WHERE employee_account_id=? AND status=\'approved\' AND substr(start_date,1,4)=?),0)+?<=21)").bind(next,days,clean(body.adminComment)||null,current.id,next,current.employee_account_id,current.start_date.slice(0,4),days).run();if(!result.meta?.changes)return bad("La demande est déjà traitée ou le solde est insuffisant.",409);return json({ok:true});}
   return bad("Action non prise en charge.",405);
 }
 export async function v2Leave(request,env,path,adminAuthorized=false){return path.startsWith("/api/admin/")&&adminAuthorized?adminLeave(request,env,path):employeeLeave(request,env,path);}

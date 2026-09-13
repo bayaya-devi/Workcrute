@@ -1,3 +1,4 @@
+import { validateApplicationAnswers } from "./v2-questions.js";
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const CHUNK_BYTES = 512 * 1024;
 const MIME_BY_EXTENSION = {
@@ -209,6 +210,7 @@ export async function submitV2Applicant(request, env) {
     return fail("VALIDATION_ERROR", "Les réponses au questionnaire sont invalides.", 422);
   }
   const applicantId = crypto.randomUUID();
+  if (!await validateApplicationAnswers(env,answers)) return fail("VALIDATION_ERROR","Les réponses obligatoires sont manquantes ou invalides.",422);
   const applicantReference = reference();
   try {
     await env.DB.prepare(
@@ -262,7 +264,7 @@ export async function submitV2Applicant(request, env) {
         "Nouvelle candidature V2",
         `${values.firstName} ${values.lastName} - ${applicantReference}`,
         "info",
-        "/admin/candidatures-v2/",
+        `/admin/postulants/?q=${encodeURIComponent(applicantReference)}`,
       ),
     );
     await env.DB.batch(emails);

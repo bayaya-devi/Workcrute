@@ -42,18 +42,20 @@ async function documentBody(env, documentId) {
 async function listApplicants(request, env) {
   const url = new URL(request.url);
   const query = clean(url.searchParams.get("q"), 120);
+  if (url.searchParams.get("status") && !statuses.has(url.searchParams.get("status"))) return bad("Statut invalide.", 422);
   const status = statuses.has(url.searchParams.get("status"))
     ? url.searchParams.get("status")
     : "";
   const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
   const limit = 25;
   const filters = [];
+  if (!status) filters.push("status<>'archived'");
   const bindings = [];
   if (query) {
     filters.push(
-      "(first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR reference LIKE ? OR professional_title LIKE ?)",
+      "(first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR reference LIKE ? OR professional_title LIKE ? OR phone LIKE ?)",
     );
-    for (let index = 0; index < 5; index += 1) bindings.push(`%${query}%`);
+    for (let index = 0; index < 6; index += 1) bindings.push(`%${query}%`);
   }
   if (status) {
     filters.push("status=?");
@@ -70,7 +72,7 @@ async function listApplicants(request, env) {
       .bind(...bindings)
       .first(),
     env.DB.prepare(
-      "SELECT COUNT(*) total,SUM(CASE WHEN status='received' THEN 1 ELSE 0 END) received,SUM(CASE WHEN status='reviewing' THEN 1 ELSE 0 END) reviewing,SUM(CASE WHEN status='shortlisted' THEN 1 ELSE 0 END) shortlisted FROM v2_applicants",
+      "SELECT COUNT(*) total,SUM(CASE WHEN status='received' THEN 1 ELSE 0 END) received,SUM(CASE WHEN status='reviewing' THEN 1 ELSE 0 END) reviewing,SUM(CASE WHEN status='shortlisted' THEN 1 ELSE 0 END) shortlisted,SUM(CASE WHEN status IN ('accepted','refused','archived') THEN 1 ELSE 0 END) treated,SUM(CASE WHEN status IN ('reviewing','shortlisted','interview') THEN 1 ELSE 0 END) pending FROM v2_applicants",
     ).first(),
   ]);
   return json({
@@ -80,6 +82,8 @@ async function listApplicants(request, env) {
     pages: Math.max(1, Math.ceil(Number(total?.total || 0) / limit)),
     stats: {
       total: Number(stats?.total || 0),
+      treated: Number(stats?.treated || 0),
+      pending: Number(stats?.pending || 0),
       received: Number(stats?.received || 0),
       reviewing: Number(stats?.reviewing || 0),
       shortlisted: Number(stats?.shortlisted || 0),
@@ -96,22 +100,26 @@ async function applicantDetail(env, id) {
   if (!item) return bad("Postulant introuvable.", 404);
   item.answers = JSON.parse(item.answers_json || "{}");
   delete item.answers_json;
-  const [documents, history] = await Promise.all([
+  const questionRows=await env.DB.prepare("SELECT id,label_fr,label_en,label_ar FROM v2_application_questions").all();
+  item.answerLabels=Object.fromEntries((questionRows.results||[]).map(question=>[question.id,{fr:question.label_fr,en:question.label_en,ar:question.label_ar}]));
+  const [documents, history, notes] = await Promise.all([
     env.DB.prepare(
       "SELECT id,kind,original_name,content_type,size_bytes,created_at FROM v2_applicant_documents WHERE applicant_id=? ORDER BY created_at",
     )
       .bind(id)
       .all(),
     env.DB.prepare(
-      "SELECT previous_status,next_status,note,created_at FROM v2_applicant_history WHERE applicant_id=? ORDER BY created_at DESC",
+      "SELECT previous_status,next_status,note,event_type,admin_session_id,created_at FROM v2_applicant_history WHERE applicant_id=? ORDER BY created_at DESC,rowid DESC",
     )
       .bind(id)
       .all(),
+    env.DB.prepare("SELECT id,content,admin_identifier,created_at FROM v2_applicant_notes WHERE applicant_id=? ORDER BY created_at DESC,rowid DESC").bind(id).all(),
   ]);
   return json({
     item,
     documents: documents.results || [],
     history: history.results || [],
+    notes: notes.results || [],
   });
 }
 
@@ -123,19 +131,19 @@ async function updateApplicant(request, env, id, adminSessionId) {
     .first();
   if (!current) return bad("Postulant introuvable.", 404);
   const body = await request.json().catch(() => ({}));
+  if (body.status !== undefined && !statuses.has(body.status)) return bad("Statut invalide.", 422);
   const nextStatus = statuses.has(body.status) ? body.status : current.status;
-  const notes =
-    typeof body.adminNotes === "string"
-      ? clean(body.adminNotes, 4000)
-      : current.admin_notes;
-  if (typeof body.adminNotes === "string" && body.adminNotes.trim() && !notes) {
+  const noteInput=body.newNote ?? body.adminNotes;
+  const notes = typeof noteInput === "string" ? clean(noteInput,4000) : "";
+  if (typeof noteInput === "string" && noteInput.trim() && !notes) {
     return bad("La note est trop longue.", 422);
   }
   const statements = [
     env.DB.prepare(
       "UPDATE v2_applicants SET status=?,admin_notes=?,reviewed_at=CASE WHEN ?<>'received' THEN COALESCE(reviewed_at,CURRENT_TIMESTAMP) ELSE reviewed_at END,updated_at=CURRENT_TIMESTAMP WHERE id=?",
-    ).bind(nextStatus, notes || null, nextStatus, id),
+    ).bind(nextStatus, current.admin_notes || null, nextStatus, id),
   ];
+  if (notes) statements.push(env.DB.prepare("INSERT INTO v2_applicant_notes(id,applicant_id,admin_identifier,content) VALUES(?,?,?,?)").bind(crypto.randomUUID(),id,adminSessionId,notes));
   if (nextStatus !== current.status) {
     statements.push(
       env.DB.prepare(

@@ -218,6 +218,9 @@ html[dir="rtl"] .wc-drawer-panel { transform: translateX(-105%); }
 .wc-password-wrap { position: relative; }
 .wc-password-wrap input { padding-inline-end: 82px; }
 .wc-password-toggle { position: absolute; inset-block: 0; inset-inline-end: 10px; color: var(--wc-primary); background: transparent; border: 0; font-size: 13px; font-weight: 700; cursor: pointer; }
+.password-eye { width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+.wc-field:has(> input[type="checkbox"]) { display:flex; align-items:center; gap:10px; }
+.wc-field > input[type="checkbox"] { width:18px; min-height:18px; flex-shrink:0; }
 .wc-progress { height: 8px; margin-block: 16px 24px; overflow: hidden; background: #e2e8f0; border-radius: 99px; }
 .wc-progress i { display: block; width: 25%; height: 100%; background: var(--wc-primary); border-radius: inherit; transition: width .2s; }
 .wc-step-panel { display: none; }

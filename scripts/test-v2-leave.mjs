@@ -1,6 +1,6 @@
 import{spawn,spawnSync}from"node:child_process";import{randomBytes}from"node:crypto";import{fileURLToPath}from"node:url";import{executeLocalSql}from"./local-d1.mjs";
 const s1=`A1!${randomBytes(18).toString("base64url")}`,s2=`B2!${randomBytes(18).toString("base64url")}`,pepper=randomBytes(32).toString("hex"),suffix=randomBytes(5).toString("hex"),port=8800,base=`http://127.0.0.1:${port}`,wrangler=fileURLToPath(new URL("../node_modules/wrangler/bin/wrangler.js",import.meta.url)),cwd=fileURLToPath(new URL("..",import.meta.url)),jars={admin:new Map(),employee:new Map()};let employeeId;
-executeLocalSql("DELETE FROM v2_leave_requests; DELETE FROM v2_holidays; DELETE FROM v2_sessions; DELETE FROM v2_login_attempts; DELETE FROM v2_employee_profiles; DELETE FROM v2_accounts WHERE role='employee'; DELETE FROM admin_sessions; DELETE FROM admin_auth_challenges; DELETE FROM admin_rate_limits; UPDATE admin_security_config SET secret_1_hash=NULL,secret_1_salt=NULL,secret_2_hash=NULL,secret_2_salt=NULL WHERE id=1");
+executeLocalSql("DELETE FROM v2_leave_requests; DELETE FROM v2_holidays; DELETE FROM v2_holiday_calendars; DELETE FROM v2_sessions; DELETE FROM v2_login_attempts; DELETE FROM v2_employee_profiles; DELETE FROM v2_accounts WHERE role='employee'; DELETE FROM admin_sessions; DELETE FROM admin_auth_challenges; DELETE FROM admin_rate_limits; UPDATE admin_security_config SET secret_1_hash=NULL,secret_1_salt=NULL,secret_2_hash=NULL,secret_2_salt=NULL WHERE id=1");
 const server=spawn(process.execPath,[wrangler,"dev","--local","--port",String(port),"--var",`ADMIN_AUTH_SECRET_1:${s1}`,"--var",`ADMIN_AUTH_SECRET_2:${s2}`,"--var",`SESSION_PEPPER:${pepper}`,"--var","ENVIRONMENT:test"],{cwd,env:process.env,stdio:"ignore"}),check=(ok,label)=>{if(!ok)throw new Error(`Échec: ${label}`);process.stdout.write(`✓ ${label}\n`);};
 server.unref();
 async function req(path,{method="GET",body,jar=jars.admin,ip="198.51.100.101"}={}){const response=await fetch(base+path,{method,headers:{...(body===undefined?{}:{"content-type":"application/json"}),"x-forwarded-for":ip,cookie:[...jar].map(([key,value])=>`${key}=${value}`).join("; ")},body:body===undefined?undefined:JSON.stringify(body)});const set=response.headers.get("set-cookie")||"";for(const match of set.matchAll(/(wc_(?:admin_(?:session|challenge)|v2_session))=([^;,]*)/g))match[2]?jar.set(match[1],match[2]):jar.delete(match[1]);return{response,data:await response.json().catch(()=>({}))};}
@@ -13,4 +13,16 @@ r=await req("/api/v2/employee/leave",{method:"POST",body:{startDate:"2026-09-04"
 r=await req("/api/v2/employee/leave",{method:"POST",body:{startDate:"2026-09-08",endDate:"2026-09-09"},jar:jars.employee,ip:"198.51.100.102"});check(r.response.status===409,"chevauchement refusé");
 r=await req(`/api/admin/v2/leave/${leaveId}`,{method:"PATCH",body:{status:"approved",adminComment:"Bon repos"}});check(r.response.ok,"approbation admin");
 r=await req("/api/v2/employee/leave",{jar:jars.employee,ip:"198.51.100.102"});check(r.response.ok&&r.data.summary.used===2&&r.data.summary.remaining===19&&r.data.items[0].admin_comment==="Bon repos","solde et réponse visibles par l’employé");
+
+r=await req("/api/admin/v2/holidays");check(r.response.ok&&r.data.items.some(item=>item.holiday_date==="2026-07-14"),"calendrier français officiel chargé");
+r=await req("/api/admin/v2/holidays/2026-09-07",{method:"PUT",body:{date:"2026-09-07",label:"Libellé modifié"}});check(r.response.ok,"modification jour férié");
+r=await req("/api/admin/v2/holidays/2026-09-07",{method:"DELETE"});check(r.response.status===204,"suppression jour férié");
+r=await req("/api/admin/v2/holidays");check(!r.data.items.some(item=>item.holiday_date==="2026-09-07"),"suppression conservée après relecture");
+r=await req("/api/admin/v2/holidays",{method:"POST",body:{date:"2026-02-30",label:"Invalide"}});check(r.response.status===422,"date impossible refusée");
+const pending=[];
+for(const [startDate,endDate] of [["2026-10-01","2026-10-20"],["2026-11-02","2026-11-20"]]){r=await req("/api/v2/employee/leave",{method:"POST",body:{startDate,endDate},jar:jars.employee,ip:"198.51.100.102"});check(r.response.status===201,"demande pour contrôle du solde");pending.push(r.data.id);}
+const decisions=await Promise.all(pending.map(id=>req("/api/admin/v2/leave/"+id,{method:"PATCH",body:{status:"approved"}})));
+check(decisions.filter(result=>result.response.ok).length===1&&decisions.some(result=>result.response.status===409),"approbations concurrentes limitées à 21 jours");
+r=await req("/api/v2/employee/leave",{jar:jars.employee,ip:"198.51.100.102"});check(r.data.summary.used<=21,"solde annuel jamais dépassé");
+
 process.stdout.write("V2 leave integration: OK\n");}finally{if(process.platform==="win32")spawnSync("taskkill",["/pid",String(server.pid),"/T","/F"],{stdio:"ignore"});else server.kill("SIGTERM");}

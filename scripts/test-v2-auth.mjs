@@ -18,6 +18,8 @@ try{
   result=await req("/api/admin/auth/step-2",{method:"POST",body:{secret:legacy2}});check(result.response.ok,"authentification historique niveau 2");
   result=await req("/api/admin/v2/account",{method:"PUT",body:{firstName:"Control",lastName:"Workcrute",password:""}});check(result.response.status===422,"mot de passe vide refusé");
   result=await req("/api/admin/v2/account",{method:"PUT",body:{firstName:"Control",lastName:"Workcrute",password}});check(result.response.ok,"configuration administrateur V2");
+  result=await req("/api/admin/v2/account",{method:"PUT",body:{firstName:"Control",lastName:"Workcrute",password:""}});check(result.response.ok,"hash conservé sans nouveau mot de passe");
+  result=await req("/api/admin/v2/account");check(result.response.ok&&!('password_hash' in result.data.account)&&!('password_salt' in result.data.account),"aucun hash ou mot de passe retourné");
   cookies=new Map();
   result=await req("/api/v2/auth/login",{method:"POST",body:{firstName:"control",lastName:"workcrute",password}});check(result.response.ok&&result.data.account.role==="admin"&&result.data.redirect==="/admin/tableau-de-bord/","connexion publique et identification du rôle");
   result=await req("/api/admin/auth/me");check(result.response.ok,"session V2 acceptée par le Control Center");

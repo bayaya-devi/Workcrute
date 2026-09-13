@@ -19,7 +19,7 @@ try{
   async function navigate(route) {
     await call("Page.navigate", { url: base + route });
     for (let attempt=0; attempt<80; attempt++) {
-      const result=await call("Runtime.evaluate", {expression:`location.pathname === "${route}" && document.readyState === "complete" && !!window.workcrutePublicI18n && !!document.querySelector('.wc-header-actions')`,returnByValue:true});
+      const result=await call("Runtime.evaluate", {expression:`location.pathname === "${route}" && document.readyState === "complete" && !!window.workcrutePublicI18n && !!document.querySelector('.wc-header-actions') && (!document.querySelector('[data-v2-application]') || document.querySelector('[data-v2-application]').dataset.questionsReady === 'true')`,returnByValue:true});
       if (result.result?.value) return;
       await sleep(100);
     }
@@ -43,6 +43,7 @@ try{
     await evaluate("workcrutePublicI18n.apply('en')");
     await navigate("/connexion/");
     if (await evaluate("document.documentElement.lang") !== "en") throw new Error("Saved language lost");
+    await evaluate(`(() => { const input=document.querySelector('[name=password]'),button=document.querySelector('[data-password-toggle]'); if(!button.getAttribute('aria-label'))throw new Error('Password label'); button.click();if(input.type!=='text')throw new Error('Password reveal');button.click();if(input.type!=='password')throw new Error('Password conceal'); })()`);
     await evaluate(`workcrutePublicI18n.apply('${language}'); document.querySelector('[name=firstName]').value='Filled'; document.querySelector('.wc-login-actions a').click()`);
     for (let i=0;i<40 && await evaluate("location.pathname")!=="/";i++) await sleep(100);
     if (await evaluate("location.pathname") !== "/") throw new Error("Cancel navigation failed");

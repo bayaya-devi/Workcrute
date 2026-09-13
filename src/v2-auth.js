@@ -157,17 +157,17 @@ export async function configureV2Admin(request, env) {
   const firstName = clean(body.firstName);
   const lastName = clean(body.lastName);
   const password = typeof body.password === "string" ? body.password : "";
-  if (!firstName || !lastName || !password || password.length > 256) {
+  const existing = await env.DB.prepare("SELECT id,password_hash,password_salt FROM v2_accounts WHERE role='admin'").first();
+  if (!firstName || !lastName || (!password && !existing) || password.length > 256) {
     return bad("Nom, prénom et mot de passe sont obligatoires.", 422);
   }
   const collision = await env.DB.prepare(
     "SELECT id FROM v2_accounts WHERE first_name_normalized=? AND last_name_normalized=? AND role<>'admin'",
   ).bind(normalizeName(firstName), normalizeName(lastName)).first();
   if (collision) return bad("Cette identité est déjà utilisée.", 409);
-  const existing = await env.DB.prepare("SELECT id FROM v2_accounts WHERE role='admin'").first();
   const id = existing?.id || crypto.randomUUID();
-  const salt = token();
-  const hash = await passwordHash(password, salt);
+  const salt = password ? token() : existing.password_salt;
+  const hash = password ? await passwordHash(password, salt) : existing.password_hash;
   await env.DB.prepare(
     "INSERT INTO v2_accounts(id,role,first_name,last_name,first_name_normalized,last_name_normalized,password_hash,password_salt) VALUES(?,'admin',?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET first_name=excluded.first_name,last_name=excluded.last_name,first_name_normalized=excluded.first_name_normalized,last_name_normalized=excluded.last_name_normalized,password_hash=excluded.password_hash,password_salt=excluded.password_salt,account_status='active',updated_at=CURRENT_TIMESTAMP",
   ).bind(id, firstName, lastName, normalizeName(firstName), normalizeName(lastName), hash, salt).run();

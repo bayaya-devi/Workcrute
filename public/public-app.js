@@ -482,6 +482,7 @@
   }
   function setupForms() {
     document.querySelectorAll("[data-password-toggle]").forEach((button) => {
+      if (window.WorkcrutePasswordVisibility) return;
       if (button.closest("[data-recruiter-signup]")) return;
       button.addEventListener("click", () => {
         const input = button
