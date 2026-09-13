@@ -11,6 +11,11 @@ r=await req("/api/admin/v2/employees",{method:"POST",body:{firstName:"Leila",las
 r=await req("/api/admin/v2/employees?q="+suffix);check(r.response.ok&&r.data.items.length===1,"recherche employé");cookies=new Map();
 r=await req("/api/v2/auth/login",{method:"POST",body:{firstName:"leila",lastName:`employee-${suffix}`,password}});check(r.response.ok&&r.data.account.role==="employee"&&r.data.redirect==="/employe/"&&r.data.account.language==="en","connexion employé et redirection");
 r=await req("/api/v2/employee/overview");check(r.response.ok&&r.data.profile.job_title==="Assistante","accueil employé protégé");
+r=await req("/api/admin/v2/applicants");check([401,403].includes(r.response.status),"employé interdit dans les postulants admin");
+r=await req("/api/admin/v2/employees",{method:"POST",body:{firstName:"Forbidden",lastName:"Account",password:"test",jobTitle:"Test"}});check([401,403].includes(r.response.status),"employé interdit de création de compte");
+r=await req("/api/v2/employee/settings",{method:"PATCH",body:{language:"en",role:"admin",firstName:"Forbidden",password:"hacked"}});check(r.response.ok,"seule la langue est modifiable");
+r=await req("/api/v2/employee/overview");check(r.data.profile.first_name==="Leila","identité non modifiable par injection");
+r=await req(`/api/v2/employee/overview?accountId=another`);check(r.data.profile.id===employeeId,"autre compte inaccessible par paramètre");
 r=await req("/api/v2/employee/settings",{method:"PATCH",body:{language:"ar"}});check(r.response.ok&&r.data.language==="ar","langue enregistrée côté serveur");
 r=await req("/api/v2/employee/overview");check(r.data.profile.preferred_language==="ar","langue retrouvée depuis le compte");
 cookies=new Map();r=await req(`/api/admin/auth/step-1`,{method:"POST",body:{secret:s1},ip:"198.51.100.92"});r=await req("/api/admin/auth/step-2",{method:"POST",body:{secret:s2},ip:"198.51.100.92"});

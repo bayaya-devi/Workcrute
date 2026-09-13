@@ -18,6 +18,7 @@ Cloudflare Pages appliquait correctement `public/_redirects`, mais GitHub Pages 
 ## Publication controlee
 
 - GitHub Pages : un seul workflow, `.github/workflows/deploy-pages.yml`, publie `public/` depuis `main`.
+- Le workflow refuse le deploiement si l'accueil V2, les redirections ou l'absence des anciens bundles ne sont pas verifies, puis publie le SHA exact dans `version.json`.
 - Cloudflare Pages : projet `workcrute`, sans fournisseur Git automatique ; le deploiement est explicite via Wrangler ou le workflow manuel Cloudflare.
 - Aucun Service Worker, manifeste PWA ou cache Workbox n'est present.
 - Les anciennes branches distantes ne declenchent aucun deploiement officiel.

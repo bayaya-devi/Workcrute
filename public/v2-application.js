@@ -7,6 +7,7 @@
   const back = form.querySelector("[data-back]");
   const next = form.querySelector("[data-next]");
   const submit = form.querySelector("[data-submit]");
+  const cancel = form.querySelector("[data-cancel]");
   const error = form.querySelector("[data-form-error]");
   const cvInput = form.elements.cvInput;
   const coverInput = form.elements.coverInput;
@@ -20,7 +21,9 @@
   sessionStorage.setItem("workcrute_v2_submission_key", idempotencyKey);
 
   const t = (key) => i18n.t(key);
+  let displayedErrorKey = "";
   const setError = (message = "") => {
+    displayedErrorKey = message ? ["apply_validation_error", "apply_submit_error", "apply_rate_error", "v2_file_type_error"].find(key => t(key) === message) || "apply_submit_error" : "";
     error.textContent = message;
     if (message) error.focus?.();
   };
@@ -36,12 +39,13 @@
   const restoreCv = async () => {
     try {
       const database = await openDatabase();
-      cvFile = await new Promise((resolve, reject) => {
+      const savedCv = await new Promise((resolve, reject) => {
         const request = database.transaction("drafts").objectStore("drafts").get("cv");
         request.onsuccess = () => resolve(request.result || null);
         request.onerror = () => reject(request.error);
       });
       database.close();
+      if (!cvFile) cvFile = savedCv;
       if (cvFile) document.querySelector("[data-cv-name]").textContent = cvFile.name;
     } catch {}
   };
@@ -57,7 +61,7 @@
       item.classList.toggle("is-active", position === current);
       item.classList.toggle("is-complete", position < current);
     });
-    back.hidden = current === 0;
+    back.disabled = current === 0 || sending;
     next.hidden = current === steps.length - 1;
     submit.hidden = current !== steps.length - 1;
     setError();
@@ -77,7 +81,7 @@
       form.elements.domainOther.setAttribute("aria-invalid", "true");
       valid = false;
     }
-    if (current === 2 && !cvFile) valid = false;
+    if (current === 2 && (!validDocument(cvFile) || (coverFile && !validDocument(coverFile)))) valid = false;
     setError(valid ? "" : t("apply_validation_error"));
     if (!valid) steps[current].querySelector('[aria-invalid="true"]')?.focus();
     return valid;
@@ -120,14 +124,40 @@
     showStep(current + 1);
   });
   back.addEventListener("click", () => showStep(current - 1));
+  cancel.addEventListener("click", async () => {
+    if (sending) return;
+    const dirty = cvFile || [...form.elements].some(field => field.name && (field.type === "checkbox" ? field.checked : field.value));
+    if (dirty && !window.confirm(t("apply_cancel_confirm"))) return;
+    sessionStorage.removeItem("workcrute_v2_submission_key");
+    try {
+      const database = await openDatabase();
+      await new Promise((resolve, reject) => {
+        const transaction = database.transaction("drafts", "readwrite");
+        transaction.objectStore("drafts").delete("cv");
+        transaction.oncomplete = resolve;
+        transaction.onerror = () => reject(transaction.error);
+      });
+      database.close();
+    } catch {}
+    location.assign(location.pathname.startsWith("/Workcrute/") ? "/Workcrute/" : "/");
+  });
+
+  function validDocument(file) {
+    return file && file.size > 0 && file.size <= 8 * 1024 * 1024 && /\.(pdf|doc|docx)$/i.test(file.name);
+  }
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (sending || !validateCurrent()) return;
+    if (sending) return;
+    if (current !== steps.length - 1) { next.click(); return; }
+    if (!validateCurrent()) return;
     sending = true;
+    back.disabled = cancel.disabled = true;
     submit.disabled = true;
     submit.textContent = t("apply_sending");
     setError();
+    try {
+    if (!validDocument(cvFile)) throw new Error(t("v2_file_type_error"));
     const data = new FormData();
     for (const name of ["firstName", "lastName", "email", "phone", "city", "country", "professionalTitle", "domain", "domainOther", "experienceLevel", "availability", "motivation"]) {
       data.append(name, form.elements[name].value);
@@ -140,10 +170,16 @@
     }));
     data.append("cv", cvFile, cvFile.name);
     if (coverFile) data.append("coverLetter", coverFile, coverFile.name);
-    try {
-      const response = await fetch("/api/v2/applicants", { method: "POST", body: data });
+      const response = await fetch(window.workcrute.apiUrl("/api/v2/applicants"), { method: "POST", credentials: "omit", body: data });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.userMessage || t("apply_submit_error"));
+      if (!response.ok) {
+        const invalidFields = Object.keys(result.fields || {});
+        const invalidStep = steps.findIndex(step => invalidFields.some(name => step.querySelector(`[name="${name}"]`)));
+        if (invalidStep >= 0) showStep(invalidStep);
+        const key = result.code === "RATE_LIMITED" ? "apply_rate_error" : result.code === "VALIDATION_ERROR" ? "apply_validation_error" : "apply_submit_error";
+        throw new Error(t(key));
+      }
+      if (!result.ok || !result.reference) throw new Error(t("apply_submit_error"));
       form.hidden = true;
       document.querySelector(".wc-apply-progress").hidden = true;
       const success = document.querySelector("[data-application-success]");
@@ -159,6 +195,8 @@
       setError(failure.message || t("apply_submit_error"));
     } finally {
       sending = false;
+      cancel.disabled = false;
+      back.disabled = current === 0;
       submit.disabled = false;
       submit.textContent = t("apply_send");
     }
@@ -166,6 +204,8 @@
 
   document.addEventListener("workcrute:language", () => {
     if (current === 3) renderReview();
+    if (displayedErrorKey) setError(t(displayedErrorKey));
+    if (sending) submit.textContent = t("apply_sending");
   });
   restoreCv();
   showStep(0);

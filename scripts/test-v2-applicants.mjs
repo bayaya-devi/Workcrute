@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 const port=8787,base=process.env.WORKCRUTE_URL||`http://127.0.0.1:${port}`,root=fileURLToPath(new URL("..",import.meta.url)),wrangler=fileURLToPath(new URL("../node_modules/wrangler/bin/wrangler.js",import.meta.url));
 const server=process.env.WORKCRUTE_URL?null:spawn(process.execPath,[wrangler,"dev","--local","--port",String(port),"--var","ENVIRONMENT:test"],{cwd:root,stdio:"ignore"});
-const key=`test${crypto.randomUUID().replaceAll("-","")}`,email=`nadia.${key}@example.com`,headers={"cf-connecting-ip":`198.51.100.${Math.floor(Math.random()*200)+1}`};
+const key=`test${crypto.randomUUID().replaceAll("-","")}`,email=`nadia.${key}@example.com`,headers=process.env.WORKCRUTE_URL?{}:{"cf-connecting-ip":`198.51.100.${Math.floor(Math.random()*200)+1}`};
 const form=()=>{const data=new FormData(),fields={firstName:"Nadia",lastName:"Test",email,phone:"+212612345678",city:"Casablanca",country:"Maroc",professionalTitle:"Responsable qualité",domain:"industry",domainOther:"",experienceLevel:"confirmed",availability:"one_month",motivation:"Candidature de validation automatisée.",language:"fr",consent:"true",idempotencyKey:key,answers:JSON.stringify({workModes:["onsite","hybrid"]})};Object.entries(fields).forEach(([name,value])=>data.append(name,value));data.append("cv",new File(["%PDF-1.4\n% Workcrute integration test"],"cv-test.pdf",{type:"application/pdf"}));return data;};
 async function ready(){if(process.env.WORKCRUTE_URL)return;for(let index=0;index<150;index+=1){try{if((await fetch(`${base}/connexion/`)).ok)return;}catch{}await new Promise(resolve=>setTimeout(resolve,200));}throw new Error("Serveur indisponible");}
 try{

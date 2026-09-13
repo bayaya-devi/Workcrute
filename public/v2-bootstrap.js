@@ -1,4 +1,10 @@
 (() => {
+  const githubPreview = location.hostname.endsWith("github.io");
+  const apiUrl = path => githubPreview ? `https://workcrute.aetbconseil.workers.dev${path}` : path;
+  if (githubPreview && /\/connexion\/?(?:index\.html)?$/.test(location.pathname)) {
+    location.replace(`https://workcrute.pages.dev/connexion/?lang=${window.workcrutePublicI18n.getLanguage()}`);
+    return;
+  }
   const api = async (path, options = {}) => {
     const response = await fetch(path, {
       credentials: "same-origin",
@@ -18,7 +24,7 @@
       if (config.brandAssets?.logo?.url) image.src = config.brandAssets.logo.url;
     });
   };
-  window.workcrute = { api };
+  window.workcrute = { api, apiUrl };
   window.WorkcruteConfigReady = location.hostname.endsWith("github.io")
     ? Promise.resolve(null)
     : api("/api/public/config").then(applyConfig).catch(() => null);

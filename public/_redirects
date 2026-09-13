@@ -1,4 +1,8 @@
 # Static pages are served from their own route directories.
+/aide /404.html 302
+/aide/* /404.html 302
+/faq /404.html 302
+/faq/* /404.html 302
 /offres / 302
 /offres/* / 302
 /candidats / 302

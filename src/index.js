@@ -90,7 +90,9 @@ const multilingual = (value, max = 500, required = false) => {
   return required && (!result.fr || !result.en || !result.ar) ? null : result;
 };
 const cors = (request) => ({
-  "access-control-allow-origin": new URL(request.url).origin,
+  "access-control-allow-origin": new URL(request.url).pathname === "/api/v2/applicants" && request.headers.get("origin") === "https://bayaya-devi.github.io"
+    ? "https://bayaya-devi.github.io" : new URL(request.url).origin,
+  "vary": "Origin",
   "access-control-allow-credentials": "true",
   "access-control-allow-headers": "content-type, x-turnstile-token",
   "access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS",

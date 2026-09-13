@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'public/**'
+      - 'scripts/verify-github-pages-artifact.mjs'
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
 
@@ -19,15 +20,25 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - name: Checkout main commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - name: Validate Workcrute V2 artifact
+        run: node scripts/verify-github-pages-artifact.mjs public "${GITHUB_SHA}"
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload current public directory
+        uses: actions/upload-pages-artifact@v3
         with:
           path: public
       - id: deployment
+        name: Deploy current artifact
         uses: actions/deploy-pages@v4
