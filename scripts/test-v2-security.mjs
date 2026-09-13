@@ -7,7 +7,7 @@ check(applicants.includes("PAYLOAD_TOO_LARGE")&&applicants.includes("UNSUPPORTED
 check(applicants.includes("signatures")&&applicants.includes('return "content"'),"signature binaire des documents contrôlée");
 check(auth.includes("PBKDF2")&&auth.includes("iterations: 100000"),"mots de passe dérivés par PBKDF2");
 check(auth.includes("HttpOnly; Secure; SameSite=Lax"),"cookie de session protégé");
-check(auth.includes("password.length < 12")&&identity.includes('minlength="12"'),"mot de passe administrateur de 12 caractères minimum");
+check(auth.includes("!password || password.length > 256")&&!identity.includes('minlength='),"mot de passe administrateur non vide, sans longueur minimale imposée");
 check(headers.includes("Content-Security-Policy")&&headers.includes("object-src 'none'")&&headers.includes("frame-ancestors 'none'"),"CSP restrictive sur les pages Cloudflare");
 const source=(await Promise.all(["src/v2-admin-applicants.js","src/v2-admin-employees.js","src/v2-employee.js","src/v2-leave.js"].map(read))).join("\n");
 check(!/(?:api[_-]?key|secret|password)\s*=\s*["'][^"']{8,}["']/i.test(source),"aucun secret codé en dur dans les modules V2");

@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { executeLocalSql } from "./local-d1.mjs";
 
-const legacy1=`A1!${randomBytes(18).toString("base64url")}`,legacy2=`B2!${randomBytes(18).toString("base64url")}`,password=`V2!${randomBytes(18).toString("base64url")}`,pepper=randomBytes(32).toString("hex"),port=8798,base=`http://127.0.0.1:${port}`;
+const legacy1=`A1!${randomBytes(18).toString("base64url")}`,legacy2=`B2!${randomBytes(18).toString("base64url")}`,password="x",pepper=randomBytes(32).toString("hex"),port=8798,base=`http://127.0.0.1:${port}`;
 const wrangler=fileURLToPath(new URL("../node_modules/wrangler/bin/wrangler.js",import.meta.url)),projectDir=fileURLToPath(new URL("..",import.meta.url));
 executeLocalSql("DELETE FROM v2_sessions; DELETE FROM v2_login_attempts; DELETE FROM v2_accounts; DELETE FROM admin_sessions; DELETE FROM admin_auth_challenges; DELETE FROM admin_rate_limits; UPDATE admin_security_config SET secret_1_hash=NULL,secret_1_salt=NULL,secret_2_hash=NULL,secret_2_salt=NULL WHERE id=1");
 const server=spawn(process.execPath,[wrangler,"dev","--local","--port",String(port),"--var",`ADMIN_AUTH_SECRET_1:${legacy1}`,"--var",`ADMIN_AUTH_SECRET_2:${legacy2}`,"--var",`SESSION_PEPPER:${pepper}`,"--var","ENVIRONMENT:test"],{cwd:projectDir,env:process.env,stdio:"ignore"});
@@ -16,6 +16,7 @@ try{
   await ready();
   let result=await req("/api/admin/auth/step-1",{method:"POST",body:{secret:legacy1}});check(result.response.ok,"authentification historique niveau 1");
   result=await req("/api/admin/auth/step-2",{method:"POST",body:{secret:legacy2}});check(result.response.ok,"authentification historique niveau 2");
+  result=await req("/api/admin/v2/account",{method:"PUT",body:{firstName:"Control",lastName:"Workcrute",password:""}});check(result.response.status===422,"mot de passe vide refusé");
   result=await req("/api/admin/v2/account",{method:"PUT",body:{firstName:"Control",lastName:"Workcrute",password}});check(result.response.ok,"configuration administrateur V2");
   cookies=new Map();
   result=await req("/api/v2/auth/login",{method:"POST",body:{firstName:"control",lastName:"workcrute",password}});check(result.response.ok&&result.data.account.role==="admin"&&result.data.redirect==="/admin/tableau-de-bord/","connexion publique et identification du rôle");
