@@ -15,6 +15,7 @@ Date: 2026-09-13
 - Aide neutralisee vers la page 404 V2; routes FAQ/Aide neutralisees sur Cloudflare.
 - Aucune entree Aide/FAQ dans le header/footer. Base interne du chatbot preservee.
 - Postuler et Connexion visibles cote a cote, y compris sur mobile.
+- Recette distante: fermeture du menu apres clic sur section corrigee; ancres locales sur l'accueil sans rechargement.
 
 ## D et E - Candidature
 

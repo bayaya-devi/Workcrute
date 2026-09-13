@@ -12,6 +12,8 @@ assert.ok(!shell.includes('href("/aide")'));
 assert.ok(!shell.includes('href("/faq")'));
 assert.ok(shell.includes('href("/postuler/")'));
 assert.ok(shell.includes('href("/connexion/")'));
+assert.ok(shell.includes('const sectionHref ='));
+assert.ok(shell.includes('event.target.closest("a[href]")'));
 assert.equal((application.match(/data-cancel/g) || []).length, 1);
 assert.ok(application.indexOf("data-back") < application.indexOf("data-cancel"));
 assert.ok(application.indexOf("data-cancel") < application.indexOf("data-next"));

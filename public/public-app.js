@@ -4,6 +4,7 @@
   const root = location.pathname.startsWith("/Workcrute/") ? "/Workcrute" : "";
   const href = (path) => `${root}${path === "/" ? "/" : path}`;
   const route = location.pathname.slice(root.length).replace(/\/+$/, "") || "/";
+  const sectionHref = id => route === "/" ? `#${id}` : `${href("/")}#${id}`;
   const legacyPublicRoute = /^\/(?:offres|candidats|recruteurs|inscription|demandeur|recruteur)(?:\/|$)/.test(route);
   if (legacyPublicRoute || route.startsWith("/mot-de-passe-oublie")) {
     location.replace(href(route.startsWith("/mot-de-passe-oublie") ? "/connexion/" : "/"));
@@ -31,10 +32,10 @@
       <div class="wc-container wc-header-inner">
         <a class="wc-brand" data-go="/" href="${href("/")}" aria-label="${escapeHtml(siteName())}"><img data-site-logo src="${brandLogo()}" alt="${escapeHtml(siteName())}" width="300" height="96"></a>
         <nav class="wc-nav" data-i18n-aria="main_navigation" aria-label="Navigation principale">
-          <a href="${href("/")}#home" data-nav="home" data-i18n="nav_home">${t("nav_home")}</a>
-          <a href="${href("/")}#process" data-i18n="nav_process">${t("nav_process")}</a>
-          <a href="${href("/")}#about" data-i18n="nav_about">${t("nav_about")}</a>
-          <a href="${href("/")}#conditions" data-i18n="footer_terms">${t("footer_terms")}</a>
+          <a href="${sectionHref("home")}" data-nav="home" data-i18n="nav_home">${t("nav_home")}</a>
+          <a href="${sectionHref("process")}" data-i18n="nav_process">${t("nav_process")}</a>
+          <a href="${sectionHref("about")}" data-i18n="nav_about">${t("nav_about")}</a>
+          <a href="${sectionHref("conditions")}" data-i18n="footer_terms">${t("footer_terms")}</a>
         </nav>
         <div class="wc-header-actions">
           <label class="wc-sr-only" for="wc-language" data-i18n="language">${t("language")}</label>
@@ -49,16 +50,16 @@
       <button class="wc-drawer-backdrop" type="button" data-menu-close data-i18n-aria="close" aria-label="Fermer"></button>
       <aside class="wc-drawer-panel" data-i18n-aria="mobile_navigation" aria-label="Navigation mobile">
         <div class="wc-drawer-head"><a class="wc-brand" data-go="/" href="${href("/")}"><img data-site-logo src="${brandLogo()}" alt="Workcrute"></a><button class="wc-icon-button" type="button" data-menu-close data-i18n-aria="close">×</button></div>
-        <nav class="wc-drawer-nav"><a href="${href("/")}#home" data-i18n="nav_home">${t("nav_home")}</a><a href="${href("/")}#process" data-i18n="nav_process">${t("nav_process")}</a><a href="${href("/")}#about" data-i18n="nav_about">${t("nav_about")}</a><a href="${href("/")}#conditions" data-i18n="footer_terms">${t("footer_terms")}</a></nav>
-        <div class="wc-drawer-actions"><a class="wc-button wc-button--secondary" data-go="/connexion" href="${href("/connexion")}" data-i18n="sign_in">${t("sign_in")}</a><a class="wc-button wc-button--primary" href="${href("/")}#cv-entry" data-i18n="apply_v2">${t("apply_v2")}</a></div>
+        <nav class="wc-drawer-nav"><a href="${sectionHref("home")}" data-i18n="nav_home">${t("nav_home")}</a><a href="${sectionHref("process")}" data-i18n="nav_process">${t("nav_process")}</a><a href="${sectionHref("about")}" data-i18n="nav_about">${t("nav_about")}</a><a href="${sectionHref("conditions")}" data-i18n="footer_terms">${t("footer_terms")}</a></nav>
+        <div class="wc-drawer-actions"><a class="wc-button wc-button--secondary" data-go="/connexion" href="${href("/connexion")}" data-i18n="sign_in">${t("sign_in")}</a><a class="wc-button wc-button--primary" href="${sectionHref("cv-entry")}" data-i18n="apply_v2">${t("apply_v2")}</a></div>
       </aside>
     </div>`;
 
   const footer = () => `
     <footer class="wc-footer"><div class="wc-container"><div class="wc-footer-grid">
       <div><a class="wc-brand" data-go="/" href="${href("/")}"><img data-site-logo src="${brandLogo()}" alt="Workcrute"></a><p data-i18n="footer_copy">${t("footer_copy")}</p></div>
-      <div><h3 data-i18n="footer_service">${t("footer_service")}</h3><div class="wc-footer-links"><a href="${href("/")}#cv-entry" data-i18n="apply_v2">${t("apply_v2")}</a><a data-go="/connexion" href="${href("/connexion")}" data-i18n="footer_login">${t("footer_login")}</a><a href="${href("/")}#process" data-i18n="nav_process">${t("nav_process")}</a></div></div>
-      <div><h3 data-i18n="footer_information">${t("footer_information")}</h3><div class="wc-footer-links"><a href="${href("/")}#about" data-i18n="nav_about">${t("nav_about")}</a><a href="${href("/")}#conditions" data-i18n="footer_terms">${t("footer_terms")}</a><a data-go="/mentions-legales" href="${href("/mentions-legales")}" data-i18n="footer_legal">${t("footer_legal")}</a><a data-go="/confidentialite" href="${href("/confidentialite")}" data-i18n="footer_privacy">${t("footer_privacy")}</a></div></div>
+      <div><h3 data-i18n="footer_service">${t("footer_service")}</h3><div class="wc-footer-links"><a href="${sectionHref("cv-entry")}" data-i18n="apply_v2">${t("apply_v2")}</a><a data-go="/connexion" href="${href("/connexion")}" data-i18n="footer_login">${t("footer_login")}</a><a href="${sectionHref("process")}" data-i18n="nav_process">${t("nav_process")}</a></div></div>
+      <div><h3 data-i18n="footer_information">${t("footer_information")}</h3><div class="wc-footer-links"><a href="${sectionHref("about")}" data-i18n="nav_about">${t("nav_about")}</a><a href="${sectionHref("conditions")}" data-i18n="footer_terms">${t("footer_terms")}</a><a data-go="/mentions-legales" href="${href("/mentions-legales")}" data-i18n="footer_legal">${t("footer_legal")}</a><a data-go="/confidentialite" href="${href("/confidentialite")}" data-i18n="footer_privacy">${t("footer_privacy")}</a></div></div>
     </div><div class="wc-footer-bottom"><span>© <span data-year></span> ${escapeHtml(siteName())}. <span data-i18n="footer_rights">${t("footer_rights")}</span></span><span>FR · EN · العربية</span></div></div></footer>`;
 
   const chatbot = () => window.WorkcruteConfig?.chatbot?.enabled === false ? "" : `
@@ -97,6 +98,9 @@
       document.body.style.overflow = value ? "hidden" : "";
     };
     open?.addEventListener("click", () => setOpen(true));
+    drawer?.addEventListener("click", event => {
+      if (event.target.closest("a[href]")) setOpen(false);
+    });
     document
       .querySelectorAll("[data-menu-close]")
       .forEach((button) =>
