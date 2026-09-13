@@ -33,8 +33,14 @@ Attachment fccc1085-c8f5-427c-8742-ce61a05b00ed was read in full. User explicitl
 
 ## Publication status
 
-No changes from this admin mission have been deployed yet. Migrations 0022-0025 are local only.
-Before remote migrations: export logical backup, run complete regression, then deploy and execute production acceptance tests.
+Published on 2026-09-14.
+
+- Logical remote D1 export saved locally before migration: `output/backups/workcrute-before-admin-20260914.sql` (ignored by Git).
+- Remote migrations applied: 0022, 0023, 0024 and 0025.
+- Commit: `dad969d feat(admin): complete control center refactor`, pushed to `main`.
+- Worker deployed: version `2c148736-6afe-4a6e-ac1a-4812f6d71605` at `https://workcrute.aetbconseil.workers.dev`.
+- Pages deployed: `https://f65bd0e9.workcrute.pages.dev`, production URL `https://workcrute.pages.dev`.
+- Production acceptance passed: public pages and questions endpoint, administrator sign-in, dashboard/questions/leave/notifications protected APIs, and logout.
 
 ## Official calendar source
 
