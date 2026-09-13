@@ -90,10 +90,11 @@
 
   function setupReveal() {
     const elements = [...document.querySelectorAll("[data-reveal]")];
-    if (!("IntersectionObserver" in window)) {
+    if (!("IntersectionObserver" in window) || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       elements.forEach((element) => element.classList.add("is-visible"));
       return;
     }
+    document.documentElement.classList.add("wc-reveal-enabled");
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {

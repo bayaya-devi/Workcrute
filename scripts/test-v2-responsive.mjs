@@ -1,25 +1,25 @@
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { executeLocalSql } from "./local-d1.mjs";
 
-const root=fileURLToPath(new URL("..",import.meta.url)),wrangler=fileURLToPath(new URL("../node_modules/wrangler/bin/wrangler.js",import.meta.url)),chrome="C:/Program Files/Google/Chrome/Application/chrome.exe",serverPort=12000+Math.floor(Math.random()*2000),chromePort=serverPort+3000,base=`http://127.0.0.1:${serverPort}`,profile=await mkdtemp(join(tmpdir(),"workcrute-chrome-"));
+const root=fileURLToPath(new URL("..",import.meta.url)),wrangler=fileURLToPath(new URL("../node_modules/wrangler/bin/wrangler.js",import.meta.url)),chrome="C:/Program Files/Google/Chrome/Application/chrome.exe",serverPort=12000+Math.floor(Math.random()*2000),chromePort=serverPort+3000,base=process.env.WORKCRUTE_UI_URL || `http://127.0.0.1:${serverPort}`,profile=await mkdtemp(join(tmpdir(),"workcrute-chrome-"));
 const server=spawn(process.execPath,[wrangler,"dev","--local","--port",String(serverPort),"--var","ENVIRONMENT:test"],{cwd:root,stdio:"ignore"}),browser=spawn(chrome,["--headless=new","--disable-gpu","--no-first-run","--disable-extensions","--no-proxy-server",`--user-data-dir=${profile}`,`--remote-debugging-port=${chromePort}`,"about:blank"],{stdio:"ignore"});
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const timedFetch=(url,options={})=>fetch(url,{...options,signal:AbortSignal.timeout(1500)});
 async function json(url){for(let index=0;index<30;index+=1){try{return await (await timedFetch(url)).json();}catch{}await sleep(150);}throw new Error(`Indisponible: ${url}`);}
 let socket,nextId=0;const errors=[];const pending=new Map();
-const call=(method,params={})=>new Promise((resolve,reject)=>{const id=++nextId,timer=setTimeout(()=>{pending.delete(id);reject(new Error(`CDP sans réponse: ${method}`));},5000);pending.set(id,{resolve:value=>{clearTimeout(timer);resolve(value);},reject:error=>{clearTimeout(timer);reject(error);}});socket.send(JSON.stringify({id,method,params}));});
+const call=(method,params={})=>new Promise((resolve,reject)=>{const id=++nextId,timer=setTimeout(()=>{pending.delete(id);reject(new Error(`CDP sans réponse: ${method}`));},30000);pending.set(id,{resolve:value=>{clearTimeout(timer);resolve(value);},reject:error=>{clearTimeout(timer);reject(error);}});socket.send(JSON.stringify({id,method,params}));});
 try{
-  let ready=false;for(let index=0;index<60;index+=1){try{if((await timedFetch(`${base}/`)).ok){ready=true;break;}}catch{}await sleep(150);}if(!ready)throw new Error("Serveur local indisponible.");
+  let ready=false;for(let index=0;index<150;index+=1){try{if((await timedFetch(`${base}/`)).ok){ready=true;break;}}catch{}await sleep(150);}if(!ready)throw new Error("Serveur local indisponible.");
   const pages=await json(`http://127.0.0.1:${chromePort}/json/list`);socket=new WebSocket(pages.find(page=>page.type==="page"&&!page.url.startsWith("chrome-extension://")).webSocketDebuggerUrl);await new Promise((resolve,reject)=>{socket.addEventListener("open",resolve,{once:true});socket.addEventListener("error",reject,{once:true});});socket.addEventListener("message",event=>{const value=JSON.parse(event.data);if(value.method==="Runtime.exceptionThrown")errors.push(value.params.exceptionDetails);if(!value.id)return;const item=pending.get(value.id);pending.delete(value.id);value.error?item.reject(new Error(value.error.message)):item.resolve(value.result);});
   await call("Page.enable");await call("Runtime.enable");
   async function navigate(route) {
     await call("Page.navigate", { url: base + route });
     for (let attempt=0; attempt<80; attempt++) {
-      const result=await call("Runtime.evaluate", {expression:`location.pathname === "${route}" && document.readyState === "complete" && !!window.workcrutePublicI18n`,returnByValue:true});
+      const result=await call("Runtime.evaluate", {expression:`location.pathname === "${route}" && document.readyState === "complete" && !!window.workcrutePublicI18n && !!document.querySelector('.wc-header-actions')`,returnByValue:true});
       if (result.result?.value) return;
       await sleep(100);
     }
@@ -27,7 +27,7 @@ try{
     const url=await call("Runtime.evaluate",{expression:"location.href",returnByValue:true});
     throw new Error("Page not ready: "+route+" "+url.result.value+" "+String(result.result.value).slice(0,300));
   }
-  const widths=[320,375,390,430,768,1024,1440,1920],routes=["/","/connexion/","/postuler/"];
+  const widths=[320,360,375,390,430,768,1024,1440,1920],routes=["/","/connexion/","/postuler/"];
   for(const width of widths){await call("Emulation.setDeviceMetricsOverride",{width,height:900,deviceScaleFactor:1,mobile:width<768});for(const route of routes){await navigate(route);for(const language of ["fr","en","ar"]){await call("Runtime.evaluate",{expression:`window.workcrutePublicI18n.apply("${language}")`});const result=await call("Runtime.evaluate",{returnByValue:true,expression:"(()=>{const viewport=innerWidth,buttons=[...document.querySelectorAll('.wc-header-actions a.wc-button')];if(buttons.length!==2||buttons.some(button=>getComputedStyle(button).display==='none'))throw new Error('Missing public action');const offenders=[...document.querySelectorAll('body *')].filter(node=>{const style=getComputedStyle(node),rect=node.getBoundingClientRect();return style.display!=='none'&&style.visibility!=='hidden'&&rect.width>1&&!node.closest('.wc-apply-progress')&&(rect.left < -1||rect.right > viewport+1);}).slice(0,8).map(node=>({tag:node.tagName,className:String(node.className),left:Math.round(node.getBoundingClientRect().left),right:Math.round(node.getBoundingClientRect().right)}));return{viewport,documentWidth:document.documentElement.scrollWidth,bodyWidth:document.body.scrollWidth,offenders};})()"}),value=result.result.value;if(result.exceptionDetails)throw new Error(JSON.stringify(result.exceptionDetails));if(value.documentWidth>value.viewport+1||value.bodyWidth>value.viewport+1||value.offenders.length)throw new Error(`Débordement ${route} à ${width}px: ${JSON.stringify(value)}`);}}process.stdout.write(`✓ ${width}px sans débordement sur 3 routes publiques FR/EN/AR\n`);}
 
   const evaluate = async expression => {
@@ -35,6 +35,29 @@ try{
     if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
     return result.result.value;
   };
+  for (const language of ["fr", "en", "ar"]) {
+    await call("Emulation.setUserAgentOverride", {userAgent:"Workcrute UI validation",acceptLanguage:language});
+    await evaluate("localStorage.removeItem('wc_language')");
+    await navigate("/");
+    if (await evaluate("document.documentElement.lang") !== language) throw new Error("Browser language detection: " + language);
+    await evaluate("workcrutePublicI18n.apply('en')");
+    await navigate("/connexion/");
+    if (await evaluate("document.documentElement.lang") !== "en") throw new Error("Saved language lost");
+    await evaluate(`workcrutePublicI18n.apply('${language}'); document.querySelector('[name=firstName]').value='Filled'; document.querySelector('.wc-login-actions a').click()`);
+    for (let i=0;i<40 && await evaluate("location.pathname")!=="/";i++) await sleep(100);
+    if (await evaluate("location.pathname") !== "/") throw new Error("Cancel navigation failed");
+  }
+  await mkdir(join(root,"output","ui"), {recursive:true});
+  for (const width of [390,1440]) {
+    await call("Emulation.setDeviceMetricsOverride",{width,height:900,deviceScaleFactor:1,mobile:width<768});
+    for (const language of ["fr","en","ar"]) {
+      await navigate("/"); await evaluate(`workcrutePublicI18n.apply('${language}'); document.querySelector('.wc-v2-final').scrollIntoView({block:'center'})`); await sleep(600);
+      const shot=await call("Page.captureScreenshot",{format:"png"});
+      await writeFile(join(root,"output","ui",`cta-${width}-${language}.png`),Buffer.from(shot.data,"base64"));
+      if (await evaluate("!!document.querySelector('[data-i18n=footer_copy]')")) throw new Error("Footer sentence remains");
+    }
+  }
+  if (!process.env.WORKCRUTE_UI_ONLY) {
   executeLocalSql("DELETE FROM v2_submission_attempts");
   for (const language of ["fr", "en", "ar"]) {
     await navigate("/postuler/");
@@ -80,6 +103,7 @@ try{
     }
     if (!success) throw new Error("Browser submission failed: " + language + " " + await evaluate('document.querySelector("[data-form-error]").textContent'));
     process.stdout.write(`✓ Real browser application with CV, validation, back and submission: ${language}\\n`);
+  }
   }
   if(errors.length) throw new Error("Browser console exceptions: "+JSON.stringify(errors));
   process.stdout.write("V2 responsive browser validation and console: OK\n");

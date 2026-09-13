@@ -57,7 +57,7 @@
 
   const footer = () => `
     <footer class="wc-footer"><div class="wc-container"><div class="wc-footer-grid">
-      <div><a class="wc-brand" data-go="/" href="${href("/")}"><img data-site-logo src="${brandLogo()}" alt="Workcrute"></a><p data-i18n="footer_copy">${t("footer_copy")}</p></div>
+      <div><a class="wc-brand" data-go="/" href="${href("/")}"><img data-site-logo src="${brandLogo()}" alt="Workcrute"></a></div>
       <div><h3 data-i18n="footer_service">${t("footer_service")}</h3><div class="wc-footer-links"><a href="${sectionHref("cv-entry")}" data-i18n="apply_v2">${t("apply_v2")}</a><a data-go="/connexion" href="${href("/connexion")}" data-i18n="footer_login">${t("footer_login")}</a><a href="${sectionHref("process")}" data-i18n="nav_process">${t("nav_process")}</a></div></div>
       <div><h3 data-i18n="footer_information">${t("footer_information")}</h3><div class="wc-footer-links"><a href="${sectionHref("about")}" data-i18n="nav_about">${t("nav_about")}</a><a href="${sectionHref("conditions")}" data-i18n="footer_terms">${t("footer_terms")}</a><a data-go="/mentions-legales" href="${href("/mentions-legales")}" data-i18n="footer_legal">${t("footer_legal")}</a><a data-go="/confidentialite" href="${href("/confidentialite")}" data-i18n="footer_privacy">${t("footer_privacy")}</a></div></div>
     </div><div class="wc-footer-bottom"><span>© <span data-year></span> ${escapeHtml(siteName())}. <span data-i18n="footer_rights">${t("footer_rights")}</span></span><span>FR · EN · العربية</span></div></div></footer>`;
