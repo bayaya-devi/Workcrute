@@ -20,7 +20,7 @@ async function files(directory) {
 
 await access(root);
 const active = await Promise.all(activePages.map((file) => readFile(join(root, file), "utf8")));
-if (!active[0].includes('data-i18n="v2_hero_title"') || !active[0].includes("Votre avenir commence ici")) {
+if (!active[0].includes('data-i18n="v2_hero_title"') || !active[0].includes("Call Management Security")) {
   throw new Error("public/index.html n'est pas l'accueil Workcrute V2.");
 }
 if (active.some((html) => forbidden.test(html))) throw new Error("Une page V2 active contient encore du contenu V1.");
