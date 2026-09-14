@@ -24,6 +24,7 @@
     "test:v2-employees": "node scripts/test-v2-employees.mjs",
     "test:v2-leave": "node scripts/test-v2-leave.mjs",
     "test:v2-invoices": "node scripts/test-v2-invoices.mjs",
+    "test:v2-billing": "node scripts/test-v2-billing.mjs",
     "test:v2-i18n": "node scripts/test-v2-i18n.mjs",
     "test:v2-retirement": "node scripts/test-v2-retirement.mjs",
     "test:v2-responsive": "node scripts/test-v2-responsive.mjs",
@@ -34,6 +35,11 @@
     "seed:demo": "node scripts/seed-demo.js"
   },
   "devDependencies": {
+    "esbuild": "^0.28.1",
     "wrangler": "^4.30.0"
+  },
+  "dependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
+    "pdf-lib": "^1.17.1"
   }
 }

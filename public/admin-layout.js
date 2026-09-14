@@ -5,6 +5,7 @@
     ["applicants", "/admin/postulants/", "applicants", "♙"],
     ["employees", "/admin/employes/", "employees", "♜"],
     ["leave", "/admin/conges/", "leave", "◷"],
+    ["invoices", "/admin/factures/", "invoices", "▤"],
     ["notifications", "/admin/notifications/", "notifications", "♢"],
     ["settings", "/admin/parametres/", "settings", "⚙"],
     ["security", "/admin/securite/", "security", "◈"],

@@ -30,6 +30,7 @@ import {
 import { v2Employee } from "./v2-employee.js";
 import { v2Leave } from "./v2-leave.js";
 import { v2Invoices } from "./v2-invoices.js";
+import { billingApi, billingCycle } from "./v2-billing.js";
 import { V2_PUBLIC_FAQ } from "./v2-faq.js";
 
 const encoder = new TextEncoder();
@@ -4947,6 +4948,8 @@ export default {
         response = await v2Auth(request, env, path);
       else if (path.startsWith("/api/v2/employee/leave"))
         response = await v2Leave(request, env, path);
+      else if (path.startsWith("/api/v2/employee/billing/"))
+        response = await billingApi(request, env, path);
       else if (path.startsWith("/api/v2/employee/invoices") || path.startsWith("/api/v2/employee/invoice-requests"))
         response = await v2Invoices(request, env, path);
       else if (path.startsWith("/api/v2/employee/"))
@@ -5111,6 +5114,10 @@ export default {
         await requireAdmin(request, env);
         response = await v2Leave(request, env, path, true);
       }
+      else if (path.startsWith("/api/admin/v2/billing/")) {
+        const billingAdmin = await requireAdmin(request, env);
+        response = await billingApi(request, env, path, billingAdmin);
+      }
       else if (path === "/api/admin/v2/invoice-requests") {
         await requireAdmin(request, env);
         response = await v2Invoices(request, env, path, true);
@@ -5254,6 +5261,7 @@ export default {
     }
   },
   async scheduled(_controller, env, ctx) {
+    ctx.waitUntil(billingCycle(env));
     ctx.waitUntil(processAdminEmailOutbox(env, 25));
     ctx.waitUntil(processRecruiterReferralEmails(env, 25));
     ctx.waitUntil(processV2ApplicantEmails(env, 25));

@@ -7,7 +7,7 @@
       activity: "Activité",
       candidates: "Candidats",
       applicants: "Postulants",
-      employees: "Ouvriers",
+      employees: "Employés",
       leave: "Congés",
       recruiters: "Recruteurs",
       companies: "Entreprises",
@@ -88,6 +88,9 @@
   Object.assign(messages.fr,{v2_pending:"En attente",v2_approved:"Accepté",v2_refused:"Refusé",v2_cancelled:"Annulé"});
   Object.assign(messages.en,{v2_pending:"Pending",v2_approved:"Approved",v2_refused:"Refused",v2_cancelled:"Cancelled"});
   Object.assign(messages.ar,{v2_pending:"في الانتظار",v2_approved:"مقبول",v2_refused:"مرفوض",v2_cancelled:"ملغى"});
+  Object.assign(messages.fr,{invoices:'Factures'});
+  Object.assign(messages.en,{invoices:'Invoices'});
+  Object.assign(messages.ar,{invoices:'الفواتير'});
   const apply = (language) => {
     const lang = messages[language] ? language : "fr";
     localStorage.setItem("workcrute-admin-language", lang);
