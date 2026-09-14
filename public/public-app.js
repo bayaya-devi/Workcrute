@@ -40,7 +40,7 @@
         <div class="wc-header-actions">
           <label class="wc-sr-only" for="wc-language" data-i18n="language">${t("language")}</label>
           <select id="wc-language" class="wc-language" data-language><option value="fr">FR</option><option value="en">EN</option><option value="ar">AR</option></select>
-          <a class="wc-button wc-button--primary" href="${sectionHref("metiers")}" data-i18n="discover_jobs">${t("discover_jobs")}</a>
+          <a class="wc-button wc-button--primary" href="${sectionHref("cv-entry")}" data-i18n="apply_v2">${t("apply_v2")}</a>
           <a class="wc-button wc-button--secondary" data-go="/connexion/" href="${href("/connexion/")}" data-i18n="sign_in">${t("sign_in")}</a>
           <button class="wc-icon-button wc-menu-button" type="button" data-menu-open data-i18n-aria="menu" aria-expanded="false"><span aria-hidden="true">☰</span></button>
         </div>
@@ -51,7 +51,7 @@
       <aside class="wc-drawer-panel" data-i18n-aria="mobile_navigation" aria-label="Navigation mobile">
         <div class="wc-drawer-head"><a class="wc-brand" data-go="/" href="${href("/")}"><img data-site-logo src="${brandLogo()}" alt="Workcrute"></a><button class="wc-icon-button" type="button" data-menu-close data-i18n-aria="close">×</button></div>
         <nav class="wc-drawer-nav"><a href="${sectionHref("home")}" data-i18n="nav_home">${t("nav_home")}</a><a href="${sectionHref("metiers")}" data-i18n="nav_process">${t("nav_process")}</a><a href="${sectionHref("about")}" data-i18n="nav_about">${t("nav_about")}</a><a href="${sectionHref("facility")}" data-i18n="nav_facility">${t("nav_facility")}</a></nav>
-        <div class="wc-drawer-actions"><a class="wc-button wc-button--secondary" data-go="/connexion" href="${href("/connexion")}" data-i18n="sign_in">${t("sign_in")}</a><a class="wc-button wc-button--primary" href="${sectionHref("metiers")}" data-i18n="discover_jobs">${t("discover_jobs")}</a></div>
+        <div class="wc-drawer-actions"><a class="wc-button wc-button--secondary" data-go="/connexion" href="${href("/connexion")}" data-i18n="sign_in">${t("sign_in")}</a><a class="wc-button wc-button--primary" href="${sectionHref("cv-entry")}" data-i18n="apply_v2">${t("apply_v2")}</a></div>
       </aside>
     </div>`;
 
@@ -70,6 +70,8 @@
       <form class="wc-chat-form" data-chat-form><label class="wc-sr-only" for="wc-chat-input" data-i18n="chat_placeholder">${t("chat_placeholder")}</label><input id="wc-chat-input" class="wc-input" data-chat-input data-i18n-placeholder="chat_placeholder" autocomplete="off"><button class="wc-button wc-button--primary" type="submit" data-i18n="chat_send">${t("chat_send")}</button></form>
     </section>`;
 
+  const backToTop = () => `<button class="wc-back-to-top" type="button" data-back-to-top data-i18n-aria="back_to_top" aria-label="Retour en haut" hidden><span aria-hidden="true">↑</span></button>`;
+
   function injectShell() {
     const headerTarget = document.querySelector("[data-public-header]");
     const footerTarget = document.querySelector("[data-public-footer]");
@@ -77,6 +79,7 @@
     if (headerTarget) headerTarget.outerHTML = header();
     if (footerTarget) footerTarget.outerHTML = footer();
     if (chatTarget) chatTarget.outerHTML = chatbot();
+    document.body.insertAdjacentHTML("beforeend", backToTop());
     document
       .querySelectorAll("[data-year]")
       .forEach((node) => (node.textContent = new Date().getFullYear()));
@@ -109,6 +112,15 @@
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape") setOpen(false);
     });
+  }
+
+  function setupBackToTop() {
+    const button = document.querySelector("[data-back-to-top]");
+    if (!button) return;
+    const sync = () => { button.hidden = window.scrollY < 420; };
+    button.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+    window.addEventListener("scroll", sync, { passive: true });
+    sync();
   }
 
   const normalize = (value) =>
@@ -526,6 +538,7 @@
     await window.WorkcruteConfigReady;
     injectShell();
     setupNavigation();
+    setupBackToTop();
     setupChat();
     setupForms();
     try {
