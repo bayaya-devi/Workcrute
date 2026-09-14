@@ -69,8 +69,11 @@
       item.classList.toggle("is-complete", position < current);
     });
     back.disabled = current === 0 || sending;
-    next.hidden = current === steps.length - 1;
-    submit.hidden = current !== steps.length - 1;
+    const confirmation = current === steps.length - 1;
+    next.hidden = confirmation;
+    next.setAttribute("aria-hidden", String(confirmation));
+    submit.hidden = !confirmation;
+    submit.disabled = !confirmation || sending;
     setError();
     form.querySelector("h2")?.focus?.();
     window.scrollTo({ top: 0, behavior: "smooth" });

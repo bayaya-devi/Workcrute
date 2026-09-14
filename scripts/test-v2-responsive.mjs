@@ -91,6 +91,7 @@ try{
       next.click();
       check(!form.querySelector('[data-step="3"]').hidden, "Review step failed");
       check(!form.querySelector("[data-submit]").hidden, "Final submit missing");
+      check(form.querySelector("[data-next]").hidden, "Continue remains on confirmation");
       form.elements.consent.checked=true;
       form.querySelector("[data-submit]").click();
       check(form.querySelector("[data-submit]").disabled, "Missing submit lock");
