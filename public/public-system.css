@@ -388,6 +388,9 @@ html[dir="rtl"] .wc-message--user { border-radius: 12px 12px 12px 3px; }
 .wc-v2-steps article { min-height: 260px; padding: 34px; background: #fff; }
 .wc-v2-steps article > span { display: inline-block; margin-block-end: 38px; color: #1377e8; font-size: 14px; font-weight: 800; }
 .wc-v2-steps article p { color: #64748b; }
+.wc-role-sheets article { display: flex; flex-direction: column; min-height: 440px; }
+.wc-role-sheets article h4 { margin: 20px 0 6px; color: var(--wc-dark); font-size: 13px; font-weight: 800; text-transform: uppercase; }
+.wc-role-sheets article a { margin-top: auto; color: var(--wc-primary); font-weight: 800; }
 .wc-v2-service { background: #eef8f7; }
 .wc-v2-service-grid { display: grid; grid-template-columns: .85fr 1.15fr; gap: 80px; align-items: start; }
 .wc-v2-service-points { display: grid; gap: 0; border-block-start: 1px solid #b8d6d1; }
