@@ -29,6 +29,7 @@ import {
 } from "./v2-auth.js";
 import { v2Employee } from "./v2-employee.js";
 import { v2Leave } from "./v2-leave.js";
+import { v2Invoices } from "./v2-invoices.js";
 import { V2_PUBLIC_FAQ } from "./v2-faq.js";
 
 const encoder = new TextEncoder();
@@ -4946,6 +4947,8 @@ export default {
         response = await v2Auth(request, env, path);
       else if (path.startsWith("/api/v2/employee/leave"))
         response = await v2Leave(request, env, path);
+      else if (path.startsWith("/api/v2/employee/invoices") || path.startsWith("/api/v2/employee/invoice-requests"))
+        response = await v2Invoices(request, env, path);
       else if (path.startsWith("/api/v2/employee/"))
         response = await v2Employee(request, env, path);
       else if (path === "/api/faq" || path === "/api/chatbot/ask")
@@ -5107,6 +5110,10 @@ export default {
       ) {
         await requireAdmin(request, env);
         response = await v2Leave(request, env, path, true);
+      }
+      else if (path === "/api/admin/v2/invoice-requests") {
+        await requireAdmin(request, env);
+        response = await v2Invoices(request, env, path, true);
       }
       else if (path === "/api/admin/auth/logout" && request.method === "POST")
         response = await adminLogout(request, env);

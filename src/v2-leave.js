@@ -33,6 +33,10 @@ export async function employeeLeaveSummary(env,accountId){
 async function employeeLeave(request,env,path){
   const session=await requireV2Session(request,env,["employee"]);
   if(path==="/api/v2/employee/leave"&&request.method==="GET"){const summary=await employeeLeaveSummary(env,session.account_id),all=await env.DB.prepare("SELECT * FROM v2_leave_requests WHERE employee_account_id=? ORDER BY created_at DESC").bind(session.account_id).all();return json({summary,items:all.results||[]});}
+  if(path==="/api/v2/employee/leave/preview"&&request.method==="POST"){
+    const body=await request.json().catch(()=>({})),start=clean(body.startDate,10),end=clean(body.endDate,10);
+    return json({workingDays:await workingDays(env,start,end)});
+  }
   if(path==="/api/v2/employee/leave"&&request.method==="POST"){
     const body=await request.json().catch(()=>({})),start=clean(body.startDate,10),end=clean(body.endDate,10),days=await workingDays(env,start,end),year=start.slice(0,4);
     const overlap=await env.DB.prepare("SELECT id FROM v2_leave_requests WHERE employee_account_id=? AND status IN ('pending','approved') AND start_date<=? AND end_date>=?").bind(session.account_id,end,start).first();if(overlap)return bad("Une demande existante chevauche cette période.",409);
