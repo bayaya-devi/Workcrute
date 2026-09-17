@@ -136,7 +136,16 @@ export async function submitV2Applicant(request, env) {
       429,
     );
   }
-  const form = await request.formData();
+  let form;
+  try {
+    form = await request.formData();
+  } catch {
+    return fail(
+      "INVALID_MULTIPART",
+      "Le formulaire envoyé n’est pas valide. Rechargez la page puis réessayez.",
+      400,
+    );
+  }
   const idempotencyKey = clean(form.get("idempotencyKey"), 80);
   if (!/^[a-zA-Z0-9_-]{16,80}$/.test(idempotencyKey)) {
     return fail("INVALID_REQUEST", "Le formulaire a expiré. Rechargez la page.", 400);
