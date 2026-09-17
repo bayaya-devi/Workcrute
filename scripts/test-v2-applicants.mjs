@@ -15,8 +15,10 @@ try{
   const invalid=new FormData();invalid.append("idempotencyKey",`invalid${crypto.randomUUID().replaceAll("-","")}`);
   const invalidResponse=await fetch(`${base}/api/v2/applicants`,{method:"POST",headers,body:invalid}),invalidBody=await invalidResponse.json();
   if(invalidResponse.status!==422||invalidBody.code!=="VALIDATION_ERROR")throw new Error(`Validation failed: ${invalidResponse.status} ${JSON.stringify(invalidBody)}`);
+  const malformedResponse=await fetch(`${base}/api/v2/applicants`,{method:"POST",headers:{...headers,"content-type":"multipart/form-data; boundary=broken"},body:"invalid multipart"}),malformedBody=await malformedResponse.json();
+  if(malformedResponse.status!==400||malformedBody.code!=="INVALID_MULTIPART")throw new Error(`Malformed multipart handling failed: ${malformedResponse.status} ${JSON.stringify(malformedBody)}`);
   const spoofed=form();spoofed.set("idempotencyKey",`spoof${crypto.randomUUID().replaceAll("-","")}`);spoofed.set("cv",new File(["not a pdf"],"unsafe.pdf",{type:"application/pdf"}));
   const spoofedResponse=await fetch(`${base}/api/v2/applicants`,{method:"POST",headers,body:spoofed}),spoofedBody=await spoofedResponse.json();
   if(spoofedResponse.status!==422||spoofedBody.code!=="VALIDATION_ERROR")throw new Error(`File signature validation failed: ${spoofedResponse.status} ${JSON.stringify(spoofedBody)}`);
-  console.log(JSON.stringify({ok:true,reference:firstBody.reference,idempotency:true,validation:true,fileSignature:true}));
+  console.log(JSON.stringify({ok:true,reference:firstBody.reference,idempotency:true,validation:true,malformedMultipart:true,fileSignature:true}));
 }finally{if(server){if(process.platform==="win32")spawnSync("taskkill",["/pid",String(server.pid),"/T","/F"],{stdio:"ignore"});else server.kill("SIGTERM");}}
