@@ -1,4 +1,5 @@
 import { requireV2Session } from "./v2-auth.js";
+import { enqueueAdminEmail } from "./admin-email.js";
 const ALLOWANCE=21,statuses=new Set(["approved","refused"]);
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
 const bad=(message,status=400)=>json({userMessage:message},status);
@@ -41,7 +42,7 @@ async function employeeLeave(request,env,path){
     const body=await request.json().catch(()=>({})),start=clean(body.startDate,10),end=clean(body.endDate,10),days=await workingDays(env,start,end),year=start.slice(0,4);
     const overlap=await env.DB.prepare("SELECT id FROM v2_leave_requests WHERE employee_account_id=? AND status IN ('pending','approved') AND start_date<=? AND end_date>=?").bind(session.account_id,end,start).first();if(overlap)return bad("Une demande existante chevauche cette période.",409);
     const current=await balance(env,session.account_id,year);if(days>current.remaining)return bad("Le solde disponible est insuffisant.",409);
-    const id=crypto.randomUUID();await env.DB.batch([env.DB.prepare("INSERT INTO v2_leave_requests(id,employee_account_id,start_date,end_date,working_days,employee_comment) VALUES(?,?,?,?,?,?)").bind(id,session.account_id,start,end,days,clean(body.comment)||null),env.DB.prepare("INSERT INTO admin_notifications(id,category,title,body,severity,href) VALUES(?,?,?,?,?,?)").bind(crypto.randomUUID(),"applications","Nouvelle demande de congé",`${session.first_name} ${session.last_name} - ${days} jour(s)`,"info","/admin/conges/")]);return json({id,workingDays:days},201);
+    const id=crypto.randomUUID();await env.DB.batch([env.DB.prepare("INSERT INTO v2_leave_requests(id,employee_account_id,start_date,end_date,working_days,employee_comment) VALUES(?,?,?,?,?,?)").bind(id,session.account_id,start,end,days,clean(body.comment)||null),env.DB.prepare("INSERT INTO admin_notifications(id,category,title,body,severity,href) VALUES(?,?,?,?,?,?)").bind(crypto.randomUUID(),"applications","Nouvelle demande de congé",`${session.first_name} ${session.last_name} - ${days} jour(s)`,"info","/admin/conges/")]);await enqueueAdminEmail(env,"new_leave","leave_request",id).catch(()=>null);return json({id,workingDays:days},201);
   }
   const cancel=path.match(/^\/api\/v2\/employee\/leave\/([^/]+)\/cancel$/);if(cancel&&request.method==="POST"){const result=await env.DB.prepare("UPDATE v2_leave_requests SET status='cancelled',updated_at=CURRENT_TIMESTAMP WHERE id=? AND employee_account_id=? AND status='pending'").bind(cancel[1],session.account_id).run();return result.meta?.changes?json({ok:true}):bad("Cette demande ne peut plus être annulée.",409);}
   return bad("Action non prise en charge.",405);

@@ -2929,6 +2929,7 @@ const adminEmailFlags = {
   newRecruiter: "email_new_recruiter",
   newJob: "email_new_job",
   newApplication: "email_new_application",
+  newLeave: "email_new_leave",
   criticalError: "email_critical_error",
   suspiciousAdminLogin: "email_suspicious_admin_login",
 };
@@ -2962,7 +2963,7 @@ async function adminEmailSettings(request, env, path) {
     const before = await adminConfig(env);
     const values = Object.keys(adminEmailFlags).map((key) => body.events?.[key] === false ? 0 : 1);
     await env.DB.prepare(
-      "UPDATE admin_security_config SET email_attachment_mode=?,email_new_candidate=?,email_new_recruiter=?,email_new_job=?,email_new_application=?,email_critical_error=?,email_suspicious_admin_login=?,updated_at=CURRENT_TIMESTAMP WHERE id=1",
+      "UPDATE admin_security_config SET email_attachment_mode=?,email_new_candidate=?,email_new_recruiter=?,email_new_job=?,email_new_application=?,email_new_leave=?,email_critical_error=?,email_suspicious_admin_login=?,updated_at=CURRENT_TIMESTAMP WHERE id=1",
     ).bind(mode, ...values).run();
     await adminAudit(env, session.id, "admin_email_settings_changed", "admin_email_settings", "1", {
       attachmentMode: before.email_attachment_mode,

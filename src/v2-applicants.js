@@ -1,4 +1,5 @@
 import { validateApplicationAnswers } from "./v2-questions.js";
+import { createSummaryPdf } from "./admin-email.js";
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const CHUNK_BYTES = 512 * 1024;
 const MIME_BY_EXTENSION = {
@@ -29,6 +30,13 @@ const validEmail = (value) =>
 const validPhone = (value) => /^\+?[0-9 ()-]{8,24}$/u.test(value);
 const extensionOf = (file) =>
   String(file?.name || "").split(".").pop()?.toLowerCase() || "";
+const bytesToBase64 = (bytes) => {
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 32768) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 32768));
+  }
+  return btoa(binary);
+};
 
 async function digest(value) {
   const bytes = await crypto.subtle.digest(
@@ -302,6 +310,53 @@ const mailCopy = {
   },
 };
 
+function applicantSummary(row) {
+  return {
+    kind: "candidature",
+    fields: [
+      ["Référence", row.reference],
+      ["Date", row.created_at],
+      ["Nom", `${row.first_name} ${row.last_name}`],
+      ["E-mail", row.email],
+      ["Téléphone", row.phone],
+      ["Ville", row.city],
+      ["Pays", row.country],
+      ["Poste recherché", row.professional_title],
+      ["Domaine", row.domain_other || row.domain],
+      ["Expérience", row.experience_level],
+      ["Disponibilité", row.availability],
+      ["Présentation", row.motivation || "Non renseignée"],
+    ],
+  };
+}
+
+async function applicantDocumentAttachment(env, applicantId, kind) {
+  const document = await env.DB.prepare(
+    "SELECT id,original_name,content_type FROM v2_applicant_documents WHERE applicant_id=? AND kind=?",
+  )
+    .bind(applicantId, kind)
+    .first();
+  if (!document) return null;
+  const { results = [] } = await env.DB.prepare(
+    "SELECT data FROM v2_applicant_document_chunks WHERE document_id=? ORDER BY chunk_index",
+  )
+    .bind(document.id)
+    .all();
+  const chunks = results.map((row) => new Uint8Array(row.data));
+  const bytes = new Uint8Array(chunks.reduce((total, chunk) => total + chunk.length, 0));
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return {
+    filename: document.original_name,
+    content: bytesToBase64(bytes),
+    type: document.content_type,
+    disposition: "attachment",
+  };
+}
+
 async function deliver(env, row) {
   const copy = mailCopy[row.language] || mailCopy.fr;
   const subject =
@@ -310,11 +365,23 @@ async function deliver(env, row) {
       : copy.applicantSubject;
   const text =
     row.audience === "admin"
-      ? `Nouvelle candidature de ${row.first_name} ${row.last_name}. Référence : ${row.reference}.`
+      ? `Nouvelle candidature de ${row.first_name} ${row.last_name}. Référence : ${row.reference}. Le récapitulatif PDF et le CV fourni sont joints à cet e-mail.`
       : copy.applicantBody(row);
+  const attachments = [];
+  if (row.audience === "admin") {
+    const summary = applicantSummary(row);
+    attachments.push({
+      filename: `candidature-${row.reference}.pdf`,
+      content: bytesToBase64(createSummaryPdf(summary)),
+      type: "application/pdf",
+      disposition: "attachment",
+    });
+    const cv = await applicantDocumentAttachment(env, row.applicant_id, "cv");
+    if (cv) attachments.push(cv);
+  }
   if (env.ENVIRONMENT === "test") return;
   if (env.EMAIL?.send) {
-    await env.EMAIL.send({ to: row.recipient, from: env.EMAIL_FROM, subject, text });
+    await env.EMAIL.send({ to: row.recipient, from: env.EMAIL_FROM, subject, text, attachments });
     return;
   }
   if (!env.EMAIL_PROVIDER_API_KEY || !env.EMAIL_FROM) {
@@ -326,14 +393,14 @@ async function deliver(env, row) {
       authorization: `Bearer ${env.EMAIL_PROVIDER_API_KEY}`,
       "content-type": "application/json",
     },
-    body: JSON.stringify({ from: env.EMAIL_FROM, to: [row.recipient], subject, text }),
+    body: JSON.stringify({ from: env.EMAIL_FROM, to: [row.recipient], subject, text, attachments }),
   });
   if (!response.ok) throw new Error(`EMAIL_PROVIDER_${response.status}`);
 }
 
 export async function processV2ApplicantEmails(env, limit = 20) {
   const { results = [] } = await env.DB.prepare(
-    "SELECT o.*,a.reference,a.first_name,a.last_name FROM v2_applicant_email_outbox o JOIN v2_applicants a ON a.id=o.applicant_id WHERE o.status IN ('pending','failed') AND o.attempts<o.max_attempts AND o.next_attempt_at<=CURRENT_TIMESTAMP ORDER BY o.created_at LIMIT ?",
+    "SELECT o.*,a.reference,a.first_name,a.last_name,a.email,a.phone,a.city,a.country,a.professional_title,a.domain,a.domain_other,a.experience_level,a.availability,a.motivation,a.created_at FROM v2_applicant_email_outbox o JOIN v2_applicants a ON a.id=o.applicant_id WHERE o.status IN ('pending','failed') AND o.attempts<o.max_attempts AND o.next_attempt_at<=CURRENT_TIMESTAMP ORDER BY o.created_at LIMIT ?",
   )
     .bind(limit)
     .all();
