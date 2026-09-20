@@ -33,7 +33,7 @@ let applicantId = null;
 try {
   await ready();
   const form = new FormData();
-  Object.entries({firstName:"Amine",lastName:`AdminTest-${suffix}`,email:`amine-${suffix}@example.com`,phone:"+212612345678",city:"Rabat",country:"Maroc",professionalTitle:"Technicien",domain:"it",domainOther:"",experienceLevel:"junior",availability:"immediate",motivation:"Test administration",language:"fr",consent:"true",idempotencyKey:`admin${crypto.randomUUID().replaceAll("-","")}`,answers:"{}"}).forEach(([key,value]) => form.append(key,value));
+  Object.entries({firstName:"Amine",lastName:`AdminTest-${suffix}`,gender:"male",email:`amine-${suffix}@example.com`,phone:"+212612345678",city:"Rabat",country:"Maroc",professionalTitle:"Technicien",domain:"it",domainOther:"",experienceLevel:"junior",availability:"immediate",motivation:"Test administration",language:"fr",consent:"true",idempotencyKey:`admin${crypto.randomUUID().replaceAll("-","")}`,answers:"{}"}).forEach(([key,value]) => form.append(key,value));
   form.append("cv", new File(["%PDF-1.4\nAdmin applicant test"], "admin-test.pdf", {type:"application/pdf"}));
   let response = await fetch(`${base}/api/v2/applicants`, {method:"POST",headers:{"x-forwarded-for":"198.51.100.72"},body:form});
   const created = await response.json();

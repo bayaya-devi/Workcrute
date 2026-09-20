@@ -168,6 +168,7 @@ export async function submitV2Applicant(request, env) {
   const values = {
     firstName: clean(form.get("firstName"), 80),
     lastName: clean(form.get("lastName"), 80),
+    gender: clean(form.get("gender"), 20),
     email: clean(form.get("email"), 254).toLowerCase(),
     phone: clean(form.get("phone"), 30),
     city: clean(form.get("city"), 120),
@@ -186,6 +187,7 @@ export async function submitV2Applicant(request, env) {
   for (const name of [
     "firstName",
     "lastName",
+    "gender",
     "email",
     "phone",
     "city",
@@ -198,6 +200,7 @@ export async function submitV2Applicant(request, env) {
     if (!values[name]) fields[name] = "required";
   }
   if (values.email && !validEmail(values.email)) fields.email = "invalid";
+  if (values.gender && !["male", "female"].includes(values.gender)) fields.gender = "invalid";
   if (values.phone && !validPhone(values.phone)) fields.phone = "invalid";
   if (values.domain === "other" && !values.domainOther) fields.domainOther = "required";
   if (form.get("consent") !== "true") fields.consent = "required";
@@ -231,13 +234,14 @@ export async function submitV2Applicant(request, env) {
   const applicantReference = reference();
   try {
     await env.DB.prepare(
-      "INSERT INTO v2_applicants(id,reference,first_name,last_name,email,phone,city,country,professional_title,domain,domain_other,experience_level,availability,motivation,answers_json,preferred_language,consent_at,idempotency_key) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,?)",
+      "INSERT INTO v2_applicants(id,reference,first_name,last_name,gender,email,phone,city,country,professional_title,domain,domain_other,experience_level,availability,motivation,answers_json,preferred_language,consent_at,idempotency_key) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,?)",
     )
       .bind(
         applicantId,
         applicantReference,
         values.firstName,
         values.lastName,
+        values.gender,
         values.email,
         values.phone,
         values.city,
@@ -317,6 +321,7 @@ function applicantSummary(row) {
       ["Référence", row.reference],
       ["Date", row.created_at],
       ["Nom", `${row.first_name} ${row.last_name}`],
+      ["Genre", row.gender === "female" ? "Femme" : row.gender === "male" ? "Homme" : "Non renseigné"],
       ["E-mail", row.email],
       ["Téléphone", row.phone],
       ["Ville", row.city],
