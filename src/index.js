@@ -331,6 +331,30 @@ async function notifyMatchingJobAlerts(env, job) {
   }
 }
 
+async function processJobAlertDigests(env) {
+  const { results = [] } = await env.DB.prepare(
+    "SELECT a.id,a.user_id,a.frequency,u.email FROM job_alerts a JOIN users u ON u.id=a.user_id WHERE a.is_active=1 AND a.email_enabled=1 AND a.frequency IN ('daily','weekly')",
+  ).all();
+  const today = new Date().toISOString().slice(0, 10);
+  for (const alert of results) {
+    const window = alert.frequency === "weekly" ? "-7 days" : "-1 day";
+    const matches = (await env.DB.prepare(
+      "SELECT j.id,j.title,j.city FROM job_alert_matches m JOIN job_offers j ON j.id=m.job_offer_id WHERE m.alert_id=? AND m.notified_at>=datetime('now',?) ORDER BY m.notified_at DESC LIMIT 20",
+    ).bind(alert.id, window).all()).results || [];
+    if (!matches.length) continue;
+    const jobs = matches.map((job) => `- ${job.title} (${job.city})`).join("\n");
+    await enqueueUserEmail(env, {
+      userId: alert.user_id,
+      recipient: alert.email,
+      eventType: "job_alert_digest",
+      resourceType: "job_alert_digest",
+      resourceId: `${alert.id}:${alert.frequency}:${today}`,
+      subject: `[Workcrute] Votre récapitulatif d'offres (${alert.frequency === "weekly" ? "hebdomadaire" : "quotidien"})`,
+      text: `Voici les offres correspondant à votre alerte :\n\n${jobs}\n\nConsultez-les dans votre espace Workcrute.`,
+    });
+  }
+}
+
 async function register(request, env) {
   const body = await request.json().catch(() => null);
   if (!body) return bad("Données invalides.");
@@ -5323,6 +5347,7 @@ export default {
     ctx.waitUntil(processAdminEmailOutbox(env, 25));
     ctx.waitUntil(processRecruiterReferralEmails(env, 25));
     ctx.waitUntil(processV2ApplicantEmails(env, 25));
+    ctx.waitUntil(processJobAlertDigests(env));
     ctx.waitUntil(processUserEmailOutbox(env, 25));
     ctx.waitUntil(env.DB.prepare("UPDATE job_offers SET status='closed',updated_at=CURRENT_TIMESTAMP WHERE status='published' AND deadline_at IS NOT NULL AND deadline_at<CURRENT_TIMESTAMP").run());
   },
