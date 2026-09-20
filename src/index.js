@@ -19,6 +19,7 @@ import {
   processV2ApplicantEmails,
   submitV2Applicant,
 } from "./v2-applicants.js";
+import { enqueueUserEmail, processUserEmailOutbox } from "./user-email.js";
 import { adminV2Applicants } from "./v2-admin-applicants.js";
 import { questionsApi } from "./v2-questions.js";
 import { adminV2Employees } from "./v2-admin-employees.js";
@@ -293,6 +294,41 @@ async function sendEmail(env, message) {
     }),
   });
   return response.ok;
+}
+
+async function queueUserNotificationEmail(env, { userId, eventType, resourceType, resourceId, subject, text }) {
+  const recipient = await env.DB.prepare(
+    "SELECT u.email,COALESCE(np.email_enabled,rp.email_enabled,1) email_enabled FROM users u LEFT JOIN notification_preferences np ON np.user_id=u.id LEFT JOIN recruiter_preferences rp ON rp.user_id=u.id WHERE u.id=?",
+  ).bind(userId).first();
+  if (!recipient?.email || Number(recipient.email_enabled) === 0) return null;
+  return enqueueUserEmail(env, { userId, recipient: recipient.email, eventType, resourceType, resourceId, subject, text });
+}
+
+async function notifyMatchingJobAlerts(env, job) {
+  const { results = [] } = await env.DB.prepare(
+    "SELECT a.*,u.email FROM job_alerts a JOIN users u ON u.id=a.user_id WHERE a.is_active=1 AND (a.in_app_enabled=1 OR a.email_enabled=1)",
+  ).all();
+  for (const alert of results) {
+    const skills = JSON.parse(alert.skills_json || "[]").map(String).map((value) => value.toLowerCase());
+    const haystack = `${job.title} ${job.domain} ${job.description} ${job.city} ${job.contract_type} ${job.work_mode} ${job.required_skills || ""}`.toLowerCase();
+    const matches = (!alert.keywords || haystack.includes(String(alert.keywords).toLowerCase())) &&
+      (!alert.domain || String(job.domain).toLowerCase() === String(alert.domain).toLowerCase()) &&
+      (!alert.city || String(job.city).toLowerCase() === String(alert.city).toLowerCase()) &&
+      (!alert.contract_type || String(job.contract_type).toLowerCase() === String(alert.contract_type).toLowerCase()) &&
+      (!alert.work_mode || String(job.work_mode).toLowerCase() === String(alert.work_mode).toLowerCase()) &&
+      (!skills.length || skills.every((skill) => haystack.includes(skill)));
+    if (!matches) continue;
+    const claimed = await env.DB.prepare("INSERT OR IGNORE INTO job_alert_matches(alert_id,job_offer_id) VALUES(?,?)").bind(alert.id, job.id).run();
+    if (!claimed.meta?.changes) continue;
+    if (alert.in_app_enabled) await env.DB.prepare(
+      "INSERT INTO notifications(id,user_id,type,title,body,href) VALUES(?,?,?,?,?,?)",
+    ).bind(crypto.randomUUID(), alert.user_id, "job_alert", "Nouvelle offre correspondant à votre alerte", `${job.title} à ${job.city}.`, `/offres/detail/?id=${job.id}`).run();
+    if (alert.email_enabled && alert.frequency === "immediate") await enqueueUserEmail(env, {
+      userId: alert.user_id, recipient: alert.email, eventType: "job_alert", resourceType: "job_offer", resourceId: job.id,
+      subject: `[Workcrute] Nouvelle offre : ${job.title}`,
+      text: `Une offre correspondant à votre alerte vient d'être publiée : ${job.title}.\n\nConsultez-la sur Workcrute : ${env.APP_ORIGIN || "https://workcrute.pages.dev"}/offres/detail/?id=${job.id}`,
+    });
+  }
 }
 
 async function register(request, env) {
@@ -944,6 +980,10 @@ async function jobs(request, env, path) {
         status === "published" ? now() : null,
       )
       .run();
+    if (status === "published") await notifyMatchingJobAlerts(env, {
+      id, title, domain, description, city, contract_type: contract, work_mode: mode,
+      required_skills: JSON.stringify(list(body.skills)),
+    });
     return json({ job: { id, status } }, 201);
   }
   return bad("Action non prise en charge.", 405);
@@ -1990,6 +2030,14 @@ async function recruiterApplications(request, env, path) {
     await audit(env, user, "application_status_changed", "application", id, {
       status,
     });
+    await queueUserNotificationEmail(env, {
+      userId: application.candidate_user_id,
+      eventType: "application_status_changed",
+      resourceType: "application",
+      resourceId: id,
+      subject: "[Workcrute] Mise à jour de votre candidature",
+      text: `Votre candidature pour ${application.title} est maintenant au statut : ${status}. Consultez votre espace Workcrute pour le détail.`,
+    });
     return json({ ok: true });
   }
   return bad("Action non prise en charge.", 405);
@@ -2151,6 +2199,8 @@ async function recruiterInterviews(request, env, path) {
         env.DB.prepare("INSERT INTO candidate_referral_history(id,referral_id,status,actor_type,actor_id) VALUES(?,?,'interview','recruiter',?)").bind(crypto.randomUUID(),referral.id,user.id),
         env.DB.prepare("INSERT INTO notifications(id,user_id,type,title,body,href) VALUES(?,?,?,?,?,?)").bind(crypto.randomUUID(),referral.candidate_user_id,"interview","Nouvel entretien",`Un entretien a été planifié pour ${referral.title}.`,"/demandeur/entretiens"),
       ]);
+      await queueUserNotificationEmail(env, { userId: referral.candidate_user_id, eventType: "interview_scheduled", resourceType: "candidate_referral_interview", resourceId: id, subject: `[Workcrute] Entretien planifié - ${referral.title}`, text: `Un entretien a été planifié pour ${referral.title} le ${body.startsAt}. Consultez votre espace Workcrute pour les détails.` });
+      await queueUserNotificationEmail(env, { userId, eventType: "interview_scheduled", resourceType: "candidate_referral_interview", resourceId: id, subject: "[Workcrute] Entretien planifié", text: `Un entretien a été planifié pour le profil candidat concernant ${referral.title} le ${body.startsAt}.` });
       await platformEvent(env,"INTERVIEW_CREATED","interviews",user.id,"candidate_referral_interview",id,{referralId:referral.id});
       return json({interview:{id}},201);
     }
@@ -2198,6 +2248,8 @@ async function recruiterInterviews(request, env, path) {
         "/demandeur/entretiens",
       ),
     ]);
+    await queueUserNotificationEmail(env, { userId: application.candidate_user_id, eventType: "interview_scheduled", resourceType: "interview", resourceId: id, subject: `[Workcrute] Entretien planifié - ${application.title}`, text: `Un entretien a été planifié pour ${application.title} le ${body.startsAt}. Consultez votre espace Workcrute pour les détails.` });
+    await queueUserNotificationEmail(env, { userId, eventType: "interview_scheduled", resourceType: "interview", resourceId: id, subject: "[Workcrute] Entretien planifié", text: `Un entretien a été planifié pour la candidature ${application.title} le ${body.startsAt}.` });
     await platformEvent(
       env,
       "INTERVIEW_CREATED",
@@ -2219,6 +2271,7 @@ async function recruiterInterviews(request, env, path) {
   if (request.method === "PATCH") {
     const platform = await getPlatformSettings(env);
     if (body.type && !platform.interviews.types.includes(body.type)) return bad("Type d’entretien désactivé.");
+    const before = await env.DB.prepare("SELECT candidate_user_id,recruiter_user_id FROM interviews WHERE id=? AND recruiter_user_id=?").bind(id, user.id).first();
     await env.DB.prepare(
       "UPDATE interviews SET starts_at=COALESCE(?,starts_at),duration_minutes=COALESCE(?,duration_minutes),interview_type=COALESCE(?,interview_type),location=COALESCE(?,location),meeting_url=COALESCE(?,meeting_url),status=COALESCE(?,status),updated_at=CURRENT_TIMESTAMP WHERE id=? AND recruiter_user_id=?",
     )
@@ -2233,6 +2286,10 @@ async function recruiterInterviews(request, env, path) {
         user.id,
       )
       .run();
+    if (before) {
+      await queueUserNotificationEmail(env, { userId: before.candidate_user_id, eventType: "interview_updated", resourceType: "interview", resourceId: id, subject: "[Workcrute] Entretien mis à jour", text: "Les informations de votre entretien ont été mises à jour. Consultez votre espace Workcrute." });
+      await queueUserNotificationEmail(env, { userId: before.recruiter_user_id, eventType: "interview_updated", resourceType: "interview", resourceId: id, subject: "[Workcrute] Entretien mis à jour", text: "Les informations de l'entretien ont été mises à jour." });
+    }
     return json({ ok: true });
   }
   return bad("Action non prise en charge.", 405);
@@ -5266,6 +5323,7 @@ export default {
     ctx.waitUntil(processAdminEmailOutbox(env, 25));
     ctx.waitUntil(processRecruiterReferralEmails(env, 25));
     ctx.waitUntil(processV2ApplicantEmails(env, 25));
+    ctx.waitUntil(processUserEmailOutbox(env, 25));
     ctx.waitUntil(env.DB.prepare("UPDATE job_offers SET status='closed',updated_at=CURRENT_TIMESTAMP WHERE status='published' AND deadline_at IS NOT NULL AND deadline_at<CURRENT_TIMESTAMP").run());
   },
 };
