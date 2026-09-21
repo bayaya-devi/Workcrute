@@ -4157,7 +4157,7 @@ async function workcruteAiReply(env, query, language, faqContext = []) {
   const languageName = { fr: "français", en: "English", ar: "العربية" }[language] || "français";
   const context = faqContext.slice(0, 3).map((item) => `Q: ${item.entry[`question_${language}`] || item.entry.question_fr}\nR: ${item.entry[`answer_${language}`] || item.entry.answer_fr}`).join("\n\n");
   const system = `Tu es l'assistant officiel de Workcrute, la plateforme RH de Call Management Security. Réponds uniquement aux questions sur Workcrute : offres et métiers, candidature, CV, formulaire, compte, connexion, espace candidat, recruteur, employé, congés, factures, notifications, e-mails et navigation du site. Réponds en ${languageName}. Sois bref, concret et prudent. Ne donne jamais de recette de cuisine, de conseil médical ou juridique, de code, de conseil financier, ni d'information inventée. Pour toute question hors sujet, dis poliment que tu aides uniquement pour Workcrute et propose de reformuler. Ne prétends jamais être humain et ne demande jamais de mot de passe, code ou secret.`;
-  const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
+  const result = await env.AI.run("@cf/meta/llama-3.2-1b-instruct", {
     messages: [
       { role: "system", content: system },
       ...(context ? [{ role: "system", content: `Voici des informations publiques de référence, à utiliser si elles répondent à la question :\n${context}` }] : []),
