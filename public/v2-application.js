@@ -113,7 +113,6 @@
       ["gender", form.elements.gender.options[form.elements.gender.selectedIndex]?.text],
       ["email", form.elements.email.value],
       ["phone", form.elements.phone.value],
-      ["professional_title", form.elements.professionalTitle.value],
       ["domain", form.elements.domainOther.value || form.elements.domain.options[form.elements.domain.selectedIndex]?.text],
       ["experience", form.elements.experienceLevel.options[form.elements.experienceLevel.selectedIndex]?.text],
       ["availability", form.elements.availability.options[form.elements.availability.selectedIndex]?.text],
@@ -180,7 +179,7 @@
     try {
     if (!validDocument(cvFile)) throw new Error(t("v2_file_type_error"));
     const data = new FormData();
-    for (const name of ["firstName", "lastName", "gender", "email", "phone", "city", "country", "professionalTitle", "domain", "domainOther", "experienceLevel", "availability", "motivation"]) {
+    for (const name of ["firstName", "lastName", "gender", "email", "phone", "city", "country", "domain", "domainOther", "experienceLevel", "availability", "motivation"]) {
       data.append(name, form.elements[name].value);
     }
     data.append("language", i18n.getLanguage());
