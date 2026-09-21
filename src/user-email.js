@@ -1,18 +1,7 @@
+import { sendTransactionalEmail } from "./email-provider.js";
+
 const providerSend = async (env, message) => {
-  if (env.ENVIRONMENT === "test") return "test-delivery";
-  if (env.EMAIL?.send) {
-    const result = await env.EMAIL.send(message);
-    return result?.id || null;
-  }
-  if (!env.EMAIL_FROM || !env.EMAIL_PROVIDER_API_KEY) throw new Error("EMAIL_PROVIDER_NOT_CONFIGURED");
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { authorization: `Bearer ${env.EMAIL_PROVIDER_API_KEY}`, "content-type": "application/json" },
-    body: JSON.stringify({ from: env.EMAIL_FROM, to: [message.to], subject: message.subject, text: message.text }),
-  });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(`EMAIL_PROVIDER_${response.status}`);
-  return result.id || null;
+  return sendTransactionalEmail(env, message);
 };
 
 export async function enqueueUserEmail(env, { userId = null, recipient, eventType, resourceType = null, resourceId = null, subject, text }) {

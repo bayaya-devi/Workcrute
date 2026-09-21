@@ -33,6 +33,7 @@ import { v2Leave } from "./v2-leave.js";
 import { v2Invoices } from "./v2-invoices.js";
 import { billingApi, billingCycle } from "./v2-billing.js";
 import { V2_PUBLIC_FAQ } from "./v2-faq.js";
+import { sendTransactionalEmail } from "./email-provider.js";
 
 const encoder = new TextEncoder();
 const fileTypes = new Map([
@@ -270,30 +271,8 @@ async function sendEmail(env, message) {
     : message.template === "admin_test"
       ? "La messagerie administrative Workcrute est correctement configurée."
       : "Une action de sécurité a été demandée sur votre compte Workcrute.";
-  if (env.EMAIL?.send) {
-    await env.EMAIL.send({
-      from: env.EMAIL_FROM,
-      to: message.to,
-      subject: subjects[message.template] || "Notification Workcrute",
-      text: content,
-    });
-    return true;
-  }
-  if (!env.EMAIL_PROVIDER_API_KEY) return false;
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${env.EMAIL_PROVIDER_API_KEY}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      from: env.EMAIL_FROM,
-      to: [message.to],
-      subject: subjects[message.template] || "Notification Workcrute",
-      text: content,
-    }),
-  });
-  return response.ok;
+  await sendTransactionalEmail(env, { to: message.to, subject: subjects[message.template] || "Notification Workcrute", text: content });
+  return true;
 }
 
 async function queueUserNotificationEmail(env, { userId, eventType, resourceType, resourceId, subject, text }) {
@@ -3256,7 +3235,7 @@ async function adminDashboard(request, env) {
   checks.authentication = Boolean(
     env.ADMIN_AUTH_SECRET_1 && env.ADMIN_AUTH_SECRET_2 && env.SESSION_PEPPER,
   );
-  checks.email = Boolean(env.EMAIL_PROVIDER_API_KEY && env.EMAIL_FROM);
+  checks.email = Boolean((env.EMAIL?.send || env.BREVO_API_KEY || env.EMAIL_PROVIDER_API_KEY) && env.EMAIL_FROM);
   const status =
     !checks.database || !checks.authentication
       ? "incident"

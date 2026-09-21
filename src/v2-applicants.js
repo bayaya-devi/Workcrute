@@ -1,5 +1,6 @@
 import { validateApplicationAnswers } from "./v2-questions.js";
 import { createSummaryPdf } from "./admin-email.js";
+import { sendTransactionalEmail } from "./email-provider.js";
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const CHUNK_BYTES = 512 * 1024;
 const MIME_BY_EXTENSION = {
@@ -383,25 +384,7 @@ async function deliver(env, row) {
     if (cv) attachments.push(cv);
   }
   if (env.ENVIRONMENT === "test") return;
-  if (env.EMAIL?.send) {
-    await env.EMAIL.send({ to: row.recipient, from: env.EMAIL_FROM, subject, text, attachments });
-    return;
-  }
-  if (!env.EMAIL_PROVIDER_API_KEY || !env.EMAIL_FROM) {
-    throw new Error("EMAIL_PROVIDER_NOT_CONFIGURED");
-  }
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${env.EMAIL_PROVIDER_API_KEY}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({ from: env.EMAIL_FROM, to: [row.recipient], subject, text, attachments }),
-  });
-  if (!response.ok) {
-    const detail = (await response.text()).replace(/\s+/g, " ").slice(0, 300);
-    throw new Error(`EMAIL_PROVIDER_${response.status}:${detail}`);
-  }
+  await sendTransactionalEmail(env, { to: row.recipient, subject, text, attachments });
 }
 
 export async function processV2ApplicantEmails(env, limit = 20) {
