@@ -2,7 +2,8 @@
   const form = document.querySelector("[data-v2-application]");
   if (!form) return;
   const i18n = window.workcrutePublicI18n;
-  const steps = [...form.querySelectorAll("[data-step]")];
+  const stepNodes = [...form.querySelectorAll("[data-step]")];
+  const steps = [stepNodes[2], stepNodes[0], stepNodes[1], stepNodes[3]];
   const progress = [...document.querySelectorAll("[data-progress]")];
   const back = form.querySelector("[data-back]");
   const next = form.querySelector("[data-next]");
@@ -16,7 +17,7 @@
   let coverFile = null;
   let sending = false;
   let questions=[];
-  const questionRoot=document.createElement("div");questionRoot.className="wc-form-grid";steps[1].append(questionRoot);
+  const questionRoot=document.createElement("div");questionRoot.className="wc-form-grid";steps[2].append(questionRoot);
   const translateQuestions=()=>questionRoot.querySelectorAll('[data-question-label]').forEach(node=>{const question=questions.find(item=>item.id===node.dataset.questionLabel);if(question)node.textContent=question['label_'+i18n.getLanguage()]+(question.required?' *':'');});
   async function loadQuestions(){
     next.disabled=true;
@@ -87,11 +88,11 @@
       field.setAttribute("aria-invalid", String(!fieldValid));
       if (!fieldValid) valid = false;
     });
-    if (current === 1 && form.elements.domain.value === "other" && !form.elements.domainOther.value.trim()) {
+    if (current === 2 && form.elements.domain.value === "other" && !form.elements.domainOther.value.trim()) {
       form.elements.domainOther.setAttribute("aria-invalid", "true");
       valid = false;
     }
-    if (current === 2 && (!validDocument(cvFile) || (coverFile && !validDocument(coverFile)))) valid = false;
+    if (current === 0 && (!validDocument(cvFile) || (coverFile && !validDocument(coverFile)))) valid = false;
     setError(valid ? "" : t("apply_validation_error"));
     if (!valid) steps[current].querySelector('[aria-invalid="true"]')?.focus();
     return valid;
@@ -124,6 +125,7 @@
   cvInput.addEventListener("change", () => {
     cvFile = cvInput.files?.[0] || null;
     document.querySelector("[data-cv-name]").textContent = cvFile?.name || "";
+    if (validDocument(cvFile) && current === 0) setTimeout(() => showStep(1), 150);
   });
   coverInput.addEventListener("change", () => {
     coverFile = coverInput.files?.[0] || null;
