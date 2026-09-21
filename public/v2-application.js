@@ -29,6 +29,19 @@
   sessionStorage.setItem("workcrute_v2_submission_key", idempotencyKey);
 
   const t = (key) => i18n.t(key);
+  const defaultRoles = ["Property Service Coordinator (PSC)", "Back Office", "Contrôleur de gestion", "Responsable de site", "Coordinateur de services", "Agent de sécurité", "Agent de propreté", "Technicien de maintenance", "Assistant administratif", "Autre"];
+  const populateRoles = (roles) => {
+    const select = form.elements.domain;
+    const currentValue = select.value;
+    const values = [...new Set((Array.isArray(roles) && roles.length ? roles : defaultRoles).map((role) => String(role).trim()).filter(Boolean))];
+    select.replaceChildren(new Option(t("apply_choose"), ""));
+    values.forEach((role) => {
+      const option = new Option(role, role === "Autre" ? "other" : role);
+      if (role === "Autre") option.dataset.i18n = "other";
+      select.add(option);
+    });
+    if ([...select.options].some((option) => option.value === currentValue)) select.value = currentValue;
+  };
   let displayedErrorKey = "";
   const setError = (message = "") => {
     displayedErrorKey = message ? ["apply_validation_error", "apply_submit_error", "apply_rate_error", "v2_file_type_error"].find(key => t(key) === message) || "apply_submit_error" : "";
@@ -224,6 +237,7 @@
   });
 
   document.addEventListener("workcrute:language", () => {
+    populateRoles(window.WorkcruteConfig?.jobs?.sectors);
     translateQuestions();
     if (current === 3) renderReview();
     if (displayedErrorKey) setError(t(displayedErrorKey));
@@ -232,4 +246,5 @@
   restoreCv();
   showStep(0);
   loadQuestions();
+  window.WorkcruteConfigReady?.then(() => populateRoles(window.WorkcruteConfig?.jobs?.sectors));
 })();

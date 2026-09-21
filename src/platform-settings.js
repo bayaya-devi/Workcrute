@@ -7,11 +7,24 @@ const canonical = {
   matchingKeys: ["skills", "experience", "education", "location", "contract", "availability", "questionnaire"],
 };
 
+export const CALL_MANAGEMENT_ROLES = Object.freeze([
+  "Property Service Coordinator (PSC)",
+  "Back Office",
+  "Contrôleur de gestion",
+  "Responsable de site",
+  "Coordinateur de services",
+  "Agent de sécurité",
+  "Agent de propreté",
+  "Technicien de maintenance",
+  "Assistant administratif",
+  "Autre",
+]);
+
 export const PLATFORM_DEFAULTS = Object.freeze({
   general: { siteName: "Workcrute", supportEmail: "", supportPhone: "" },
   registrations: { candidateEnabled: true, recruiterEnabled: true, emailVerificationRequired: true, cvRequired: false },
   documents: { extensions: [...canonical.extensions], maxSizeMb: 8, maxCount: 20, types: [...canonical.documentTypes] },
-  jobs: { sectors: ["Informatique", "Commerce", "Logistique", "Industrie", "Services", "Santé", "Finance", "BTP", "Tourisme", "Éducation"], contractTypes: ["CDI", "CDD", "Stage", "Alternance", "Freelance"], publicationDays: 30, requiredFields: ["title", "domain", "description", "contractType", "city", "workMode"] },
+  jobs: { sectors: [...CALL_MANAGEMENT_ROLES], contractTypes: ["CDI", "CDD", "Stage", "Alternance", "Freelance"], publicationDays: 30, requiredFields: ["title", "domain", "description", "contractType", "city", "workMode"] },
   applications: { statuses: [...canonical.applicationStatuses], withdrawalEnabled: true, rules: { coverLetterRequired: false, completeProfileRequired: false, cvRequired: false } },
   interviews: { types: [...canonical.interviewTypes], defaultDurations: { onsite: 60, phone: 30, video: 45 } },
   matching: { enabled: true, weights: { skills: 25, experience: 15, education: 10, location: 10, contract: 10, availability: 10, questionnaire: 20 }, recommendedThreshold: 70 },
