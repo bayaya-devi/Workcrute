@@ -82,18 +82,24 @@
 
   function validateCurrent() {
     let valid = true;
+    const missing = [];
     const required = [...steps[current].querySelectorAll("input,select,textarea")];
     required.forEach((field) => {
+      if (field.disabled || field.closest("[hidden]")) return;
       const fieldValid = field.type === "checkbox" ? !field.required || field.checked : field.checkValidity();
       field.setAttribute("aria-invalid", String(!fieldValid));
-      if (!fieldValid) valid = false;
+      if (!fieldValid) {
+        valid = false;
+        const label = field.closest("label")?.querySelector("span")?.textContent?.trim() || field.name;
+        if (label && !missing.includes(label)) missing.push(label);
+      }
     });
     if (current === 2 && form.elements.domain.value === "other" && !form.elements.domainOther.value.trim()) {
       form.elements.domainOther.setAttribute("aria-invalid", "true");
       valid = false;
     }
     if (current === 0 && (!validDocument(cvFile) || (coverFile && !validDocument(coverFile)))) valid = false;
-    setError(valid ? "" : t("apply_validation_error"));
+    setError(valid ? "" : `${t("apply_validation_error")} ${missing.length ? `(${missing.join(", ")})` : ""}`);
     if (!valid) steps[current].querySelector('[aria-invalid="true"]')?.focus();
     return valid;
   }
