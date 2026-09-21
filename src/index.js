@@ -4188,9 +4188,9 @@ async function publicFaq(request, env, path) {
         .map((entry) => ({ entry, score: faqScore(entry, query, language) }))
         .sort(
           (a, b) => b.score - a.score || b.entry.priority - a.entry.priority,
-        ),
-      best = ranked[0],
-      directApply = /\b(cv|candid|postul|d[eé]pos|resume|application)\b|سيرة|ترشح|تقديم/i.test(query),
+        );
+    let best = ranked[0];
+    const directApply = /\b(cv|candid|postul|d[eé]pos|resume|application)\b|سيرة|ترشح|تقديم/i.test(query),
       offTopic = /\b(recette|cuisine|recipe|cooking|medical|m[eé]dical|code|programmation)\b|وصفة|طبخ|برمجة|طبي/i.test(query),
       directEntry = directApply ? V2_PUBLIC_FAQ.find((entry) => entry.id === "v2-apply") : null,
       faqMatched = Boolean(directEntry || (best && best.score >= platform.chatbot.similarityThreshold)),
