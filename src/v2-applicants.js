@@ -398,7 +398,10 @@ async function deliver(env, row) {
     },
     body: JSON.stringify({ from: env.EMAIL_FROM, to: [row.recipient], subject, text, attachments }),
   });
-  if (!response.ok) throw new Error(`EMAIL_PROVIDER_${response.status}`);
+  if (!response.ok) {
+    const detail = (await response.text()).replace(/\s+/g, " ").slice(0, 300);
+    throw new Error(`EMAIL_PROVIDER_${response.status}:${detail}`);
+  }
 }
 
 export async function processV2ApplicantEmails(env, limit = 20) {
