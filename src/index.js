@@ -4152,6 +4152,23 @@ function faqForJson(row) {
     is_active: Boolean(row.is_active),
   };
 }
+async function workcruteAiReply(env, query, language, faqContext = []) {
+  if (!env.AI?.run) return "";
+  const languageName = { fr: "français", en: "English", ar: "العربية" }[language] || "français";
+  const context = faqContext.slice(0, 3).map((item) => `Q: ${item.entry[`question_${language}`] || item.entry.question_fr}\nR: ${item.entry[`answer_${language}`] || item.entry.answer_fr}`).join("\n\n");
+  const system = `Tu es l'assistant officiel de Workcrute, la plateforme RH de Call Management Security. Réponds uniquement aux questions sur Workcrute : offres et métiers, candidature, CV, formulaire, compte, connexion, espace candidat, recruteur, employé, congés, factures, notifications, e-mails et navigation du site. Réponds en ${languageName}. Sois bref, concret et prudent. Ne donne jamais de recette de cuisine, de conseil médical ou juridique, de code, de conseil financier, ni d'information inventée. Pour toute question hors sujet, dis poliment que tu aides uniquement pour Workcrute et propose de reformuler. Ne prétends jamais être humain et ne demande jamais de mot de passe, code ou secret.`;
+  const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
+    messages: [
+      { role: "system", content: system },
+      ...(context ? [{ role: "system", content: `Voici des informations publiques de référence, à utiliser si elles répondent à la question :\n${context}` }] : []),
+      { role: "user", content: query },
+    ],
+    max_tokens: 260,
+    temperature: 0.2,
+  });
+  const answer = typeof result?.response === "string" ? result.response.trim() : "";
+  return answer.length > 1800 ? `${answer.slice(0, 1797).trim()}...` : answer;
+}
 async function publicFaq(request, env, path) {
   if (path === "/api/faq" && request.method === "GET") {
     return json({ items: V2_PUBLIC_FAQ.map(faqForJson) });
@@ -4171,8 +4188,19 @@ async function publicFaq(request, env, path) {
           (a, b) => b.score - a.score || b.entry.priority - a.entry.priority,
         ),
       best = ranked[0],
-      matched = Boolean(best && best.score >= platform.chatbot.similarityThreshold),
+      faqMatched = Boolean(best && best.score >= platform.chatbot.similarityThreshold),
       id = crypto.randomUUID();
+    let answer = faqMatched ? best.entry[`answer_${language}`] : "";
+    let ai = false;
+    if (!faqMatched) {
+      try {
+        answer = await workcruteAiReply(env, query, language, ranked);
+        ai = Boolean(answer);
+      } catch (error) {
+        console.warn("WORKCRUTE_AI_UNAVAILABLE", String(error?.message || error));
+      }
+    }
+    const matched = Boolean(answer);
     await env.DB.prepare(
       "INSERT INTO chatbot_queries(id,query_text,normalized_query,language,matched,faq_id,category,score) VALUES(?,?,?,?,?,?,?,?)",
     )
@@ -4183,14 +4211,15 @@ async function publicFaq(request, env, path) {
         language,
         matched ? 1 : 0,
         null,
-        matched ? best.entry.category : null,
+        faqMatched ? best.entry.category : ai ? "ai" : null,
         best?.score || 0,
       )
       .run();
     return json({
       matched,
-      answer: matched ? best.entry[`answer_${language}`] : null,
-      faq: matched ? faqForJson(best.entry) : null,
+      answer: matched ? answer : null,
+      source: ai ? "ai" : faqMatched ? "faq" : "none",
+      faq: faqMatched ? faqForJson(best.entry) : null,
       suggestions: ranked
         .slice(matched ? 1 : 0, matched ? 4 : 3)
         .map((item) => ({ ...faqForJson(item.entry), score: item.score })),
