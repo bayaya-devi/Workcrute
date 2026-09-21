@@ -93,6 +93,7 @@ p { margin-block: 0 16px; }
 .wc-field-error, .wc-form-error { color: #b91c1c; font-size: 13px; font-weight: 600; }
 .wc-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .wc-form-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-block-start: 24px; }
+.wc-form-actions [data-next][hidden], .wc-form-actions [data-submit][hidden] { display: none !important; }
 .wc-check { display: flex; align-items: flex-start; gap: 10px; color: var(--wc-muted); font-size: 14px; }
 .wc-check input { width: 18px; height: 18px; margin-block-start: 3px; accent-color: var(--wc-primary); }
 

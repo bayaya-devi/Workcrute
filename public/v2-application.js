@@ -72,8 +72,10 @@
     back.disabled = current === 0 || sending;
     const confirmation = current === steps.length - 1;
     next.hidden = confirmation;
+    next.style.display = confirmation ? "none" : "inline-flex";
     next.setAttribute("aria-hidden", String(confirmation));
     submit.hidden = !confirmation;
+    submit.style.display = confirmation ? "inline-flex" : "none";
     submit.disabled = !confirmation || sending;
     setError();
     form.querySelector("h2")?.focus?.();
