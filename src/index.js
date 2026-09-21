@@ -4190,11 +4190,20 @@ async function publicFaq(request, env, path) {
           (a, b) => b.score - a.score || b.entry.priority - a.entry.priority,
         ),
       best = ranked[0],
-      faqMatched = Boolean(best && best.score >= platform.chatbot.similarityThreshold),
+      directApply = /\b(cv|candid|postul|d[eé]pos|resume|application)\b|سيرة|ترشح|تقديم/i.test(query),
+      offTopic = /\b(recette|cuisine|recipe|cooking|medical|m[eé]dical|code|programmation)\b|وصفة|طبخ|برمجة|طبي/i.test(query),
+      directEntry = directApply ? V2_PUBLIC_FAQ.find((entry) => entry.id === "v2-apply") : null,
+      faqMatched = Boolean(directEntry || (best && best.score >= platform.chatbot.similarityThreshold)),
       id = crypto.randomUUID();
-    let answer = faqMatched ? best.entry[`answer_${language}`] : "";
+    if (directEntry) best = { entry: directEntry, score: 1 };
+    const refusal = {
+      fr: "Je suis l’assistant Workcrute. Je peux aider pour les offres, les candidatures, les comptes et les espaces Workcrute, mais pas pour ce sujet.",
+      en: "I am the Workcrute assistant. I can help with jobs, applications, accounts and Workcrute workspaces, but not with that topic.",
+      ar: "أنا مساعد Workcrute. يمكنني المساعدة في الوظائف والطلبات والحسابات ومساحات Workcrute، وليس في هذا الموضوع.",
+    };
+    let answer = offTopic ? refusal[language] : faqMatched ? best.entry[`answer_${language}`] : "";
     let ai = false;
-    if (!faqMatched) {
+    if (!faqMatched && !offTopic) {
       try {
         answer = await workcruteAiReply(env, query, language, ranked);
         ai = Boolean(answer);
@@ -4213,14 +4222,14 @@ async function publicFaq(request, env, path) {
         language,
         matched ? 1 : 0,
         null,
-        faqMatched ? best.entry.category : ai ? "ai" : null,
+        offTopic ? "guardrail" : faqMatched ? best.entry.category : ai ? "ai" : null,
         best?.score || 0,
       )
       .run();
     return json({
       matched,
       answer: matched ? answer : null,
-      source: ai ? "ai" : faqMatched ? "faq" : "none",
+      source: offTopic ? "guardrail" : ai ? "ai" : faqMatched ? "faq" : "none",
       faq: faqMatched ? faqForJson(best.entry) : null,
       suggestions: ranked
         .slice(matched ? 1 : 0, matched ? 4 : 3)
