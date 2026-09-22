@@ -4154,6 +4154,18 @@ function faqForJson(row) {
     is_active: Boolean(row.is_active),
   };
 }
+function directFaqId(query) {
+  const value = normalizeFaq(query);
+  if (/\b(compte|account|حساب)\b/.test(value) && /\b(postul|candid|apply|need|dois|faut|nécess|لا|هل)\b/.test(value)) return "v2-account";
+  if (/\b(mdp|mot de passe|password|passe oublié|forgot|reset|نسيت|كلمة المرور)\b/.test(value)) return "v2-password-help";
+  if (/\b(format|taille|poids|8 mo|8 mb|pdf|docx|extension|حجم|صيغة|ميغابايت)\b/.test(value) && /\b(cv|resume|document|سيرة|ملف)\b/.test(value)) return "v2-visitor-cv-limit";
+  if (/\b(document|lettre|cover letter|fichier|مستند|رسالة)\b/.test(value)) return "v2-documents";
+  if (/\b(étape|etape|parcours|formulaire|questionnaire|steps|process|form|خطوات|نموذج)\b/.test(value)) return "v2-visitor-application-steps";
+  if (/\b(suivre|suivi|statut|track|tracking|status|متابعة|حالة)\b/.test(value) && /\b(candid|application|demande|طلب)\b/.test(value)) return "v2-application-status";
+  if (/\b(confirma|référence|reference|confirm|envoyée|submitted|تأكيد|مرجع)\b/.test(value)) return "v2-visitor-confirmation";
+  if (/\b(cv|candid|postul|dépos|resume|application|سيرة|ترشح|تقديم)\b/.test(value)) return "v2-apply";
+  return null;
+}
 async function workcruteAiReply(env, query, language, faqContext = []) {
   if (!env.AI?.run) return "";
   const languageName = { fr: "français", en: "English", ar: "العربية" }[language] || "français";
@@ -4205,9 +4217,9 @@ async function publicFaq(request, env, path) {
           (a, b) => b.score - a.score || b.entry.priority - a.entry.priority,
         );
     let best = ranked[0];
-    const directApply = /\b(cv|candid|postul|d[eé]pos|resume|application)\b|سيرة|ترشح|تقديم/i.test(query),
+    const directId = directFaqId(query),
       offTopic = /\b(recette|cuisine|recipe|cooking|medical|m[eé]dical|code|programmation)\b|وصفة|طبخ|برمجة|طبي/i.test(query),
-      directEntry = directApply ? faqEntries.find((entry) => entry.id === "v2-apply") : null,
+      directEntry = directId ? faqEntries.find((entry) => entry.id === directId) : null,
       faqMatched = Boolean(directEntry || (best && best.score >= platform.chatbot.similarityThreshold)),
       id = crypto.randomUUID();
     if (directEntry) best = { entry: directEntry, score: 1 };
