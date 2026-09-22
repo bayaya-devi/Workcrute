@@ -1,4 +1,13 @@
 (() => {
+  if (!window.WorkcruteTheme) {
+    const script = document.createElement("script");
+    script.src = "/theme.js";
+    script.onload = () => {
+      window.WorkcruteTheme?.mount();
+      window.dispatchEvent(new CustomEvent("workcrute:theme-ready"));
+    };
+    document.head.append(script);
+  }
   const i18n = window.workcrutePublicI18n;
   let faq = window.workcruteFaqKnowledge || [];
   const root = location.pathname.startsWith("/Workcrute/") ? "/Workcrute" : "";
@@ -59,18 +68,15 @@
     <footer class="wc-footer"><div class="wc-container"><div class="wc-footer-grid">
       <div><a class="wc-brand" data-go="/" href="${href("/")}"><img data-site-logo src="${brandLogo()}" alt="Workcrute"></a></div>
       <div><h3 data-i18n="footer_service">${t("footer_service")}</h3><div class="wc-footer-links"><a href="${sectionHref("metiers")}" data-i18n="discover_jobs">${t("discover_jobs")}</a><a data-go="/connexion" href="${href("/connexion")}" data-i18n="footer_login">${t("footer_login")}</a><a href="${sectionHref("facility")}" data-i18n="nav_facility">${t("nav_facility")}</a></div></div>
-      <div><h3 data-i18n="footer_information">${t("footer_information")}</h3><div class="wc-footer-links"><a href="${sectionHref("about")}" data-i18n="nav_about">${t("nav_about")}</a><a href="${sectionHref("conditions")}" data-i18n="footer_terms">${t("footer_terms")}</a><a data-go="/mentions-legales" href="${href("/mentions-legales")}" data-i18n="footer_legal">${t("footer_legal")}</a><a data-go="/confidentialite" href="${href("/confidentialite")}" data-i18n="footer_privacy">${t("footer_privacy")}</a></div></div>
+      <div><h3 data-i18n="footer_information">${t("footer_information")}</h3><div class="wc-footer-links"><a href="${sectionHref("about")}" data-i18n="nav_about">${t("nav_about")}</a><a data-go="/conditions" href="${href("/conditions/")}" data-i18n="footer_terms">${t("footer_terms")}</a><a data-go="/mentions-legales" href="${href("/mentions-legales")}" data-i18n="footer_legal">${t("footer_legal")}</a><a data-go="/confidentialite" href="${href("/confidentialite")}" data-i18n="footer_privacy">${t("footer_privacy")}</a></div></div>
     </div><div class="wc-footer-bottom"><span>© <span data-year></span> ${escapeHtml(siteName())}. <span data-i18n="footer_rights">${t("footer_rights")}</span></span><span>FR · EN · العربية</span></div></div></footer>`;
 
   const chatbot = () => window.WorkcruteConfig?.chatbot?.enabled === false ? "" : `
-    <button class="wc-chat-launcher" type="button" data-chat-open data-i18n-aria="open_chat" aria-expanded="false">✦</button>
     <section class="wc-chat" data-chat data-i18n-aria="chat_title" aria-label="Assistant Workcrute" aria-hidden="true">
       <header class="wc-chat-head"><div class="wc-chat-title"><span class="wc-avatar">W</span><span><strong data-i18n="chat_title">${t("chat_title")}</strong><small data-i18n="chat_status">${t("chat_status")}</small></span></div><button class="wc-chat-close" type="button" data-chat-close data-i18n-aria="close">×</button></header>
       <div class="wc-chat-body" data-chat-body aria-live="polite"></div>
       <form class="wc-chat-form" data-chat-form><label class="wc-sr-only" for="wc-chat-input" data-i18n="chat_placeholder">${t("chat_placeholder")}</label><input id="wc-chat-input" class="wc-input" data-chat-input data-i18n-placeholder="chat_placeholder" autocomplete="off"><button class="wc-button wc-button--primary" type="submit" data-i18n="chat_send">${t("chat_send")}</button></form>
     </section>`;
-
-  const backToTop = () => `<button class="wc-back-to-top" type="button" data-back-to-top data-i18n-aria="back_to_top" aria-label="Retour en haut" hidden><span aria-hidden="true">↑</span></button>`;
 
   function injectShell() {
     const headerTarget = document.querySelector("[data-public-header]");
@@ -79,7 +85,7 @@
     if (headerTarget) headerTarget.outerHTML = header();
     if (footerTarget) footerTarget.outerHTML = footer();
     if (chatTarget) chatTarget.outerHTML = chatbot();
-    document.body.insertAdjacentHTML("beforeend", backToTop());
+    window.WorkcruteTheme?.mount();
     document
       .querySelectorAll("[data-year]")
       .forEach((node) => (node.textContent = new Date().getFullYear()));
@@ -168,13 +174,14 @@
   }
 
   function setupChat() {
+    window.WorkcruteTheme?.mount();
     const panel = document.querySelector("[data-chat]");
-    const launcher = document.querySelector("[data-chat-open]");
     const body = document.querySelector("[data-chat-body]");
     const form = document.querySelector("[data-chat-form]");
     const input = document.querySelector("[data-chat-input]");
     if (!panel || !body) return;
     let welcomed = false;
+    let loading = false;
     const addMessage = (content, user = false) => {
       const node = document.createElement("div");
       node.className = `wc-message${user ? " wc-message--user" : ""}`;
@@ -203,19 +210,28 @@
     };
     const ask = async (query) => {
       const clean = query.trim();
-      if (!clean) return;
+      if (!clean || loading) return;
+      loading = true;
       addMessage(clean, true);
+      const submit = form?.querySelector("button[type=submit]");
+      if (submit) submit.disabled = true;
+      const pending = document.createElement("div");
+      pending.className = "wc-message wc-message--pending";
+      pending.textContent = t("chat_thinking");
+      body.append(pending);
       try {
         const result = await api("/api/chatbot/ask", {
           method: "POST",
           body: JSON.stringify({ query: clean, language: i18n.getLanguage() }),
         });
-        if (result.matched) addMessage(result.answer);
+        pending.remove();
+        if (result.matched && result.answer) addMessage(result.answer);
         else {
           addMessage(t("chat_unknown"));
           suggestions(result.suggestions || []);
         }
       } catch {
+        pending.remove();
         const ranked = findFaq(clean);
         if (ranked[0]?.score >= (window.WorkcruteConfig?.chatbot?.similarityThreshold || 0.43))
           addMessage(localized(ranked[0].entry, "answer"));
@@ -223,20 +239,29 @@
           addMessage(t("chat_unknown"));
           suggestions(ranked.slice(0, 3).map((item) => item.entry));
         }
+      } finally {
+        loading = false;
+        if (submit) submit.disabled = false;
       }
     };
     const setOpen = (value) => {
       panel.classList.toggle("is-open", value);
       panel.setAttribute("aria-hidden", String(!value));
-      launcher.setAttribute("aria-expanded", String(value));
+      document.querySelector("[data-chat-open]")?.setAttribute("aria-expanded", String(value));
       if (value) {
         if (!welcomed) welcome();
         setTimeout(() => input.focus(), 0);
       }
     };
-    launcher.addEventListener("click", () =>
-      setOpen(!panel.classList.contains("is-open")),
-    );
+    let launcherBound = false;
+    const bindLauncher = () => {
+      const launcher = document.querySelector("[data-chat-open]");
+      if (!launcher || launcherBound) return;
+      launcherBound = true;
+      launcher.addEventListener("click", () => setOpen(!panel.classList.contains("is-open")));
+    };
+    bindLauncher();
+    window.addEventListener("workcrute:theme-ready", bindLauncher, { once: true });
     document
       .querySelector("[data-chat-close]")
       ?.addEventListener("click", () => setOpen(false));

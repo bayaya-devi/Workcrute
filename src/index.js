@@ -4095,7 +4095,7 @@ function faqScore(entry, query, language) {
 }
 async function ensureFaqSeed(env) {
   const count = await env.DB.prepare(
-    "SELECT COUNT(*) count FROM faq_entries",
+    "SELECT COUNT(*) count FROM faq_entries WHERE id LIKE 'faq-%'",
   ).first();
   if (Number(count?.count)) return;
   for (let offset = 0; offset < FAQ_CATALOG.length; offset += 40) {
@@ -4122,6 +4122,29 @@ async function ensureFaqSeed(env) {
     );
   }
 }
+async function ensureV2FaqSeed(env) {
+  await env.DB.batch(
+    V2_PUBLIC_FAQ.map((entry) =>
+      env.DB.prepare(
+        "INSERT OR IGNORE INTO faq_entries(id,category,question_fr,answer_fr,question_en,answer_en,question_ar,answer_ar,keywords_fr,keywords_en,keywords_ar,priority,is_active) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+      ).bind(
+        entry.id,
+        entry.category,
+        entry.question_fr,
+        entry.answer_fr,
+        entry.question_en,
+        entry.answer_en,
+        entry.question_ar,
+        entry.answer_ar,
+        JSON.stringify(entry.keywords_fr),
+        JSON.stringify(entry.keywords_en),
+        JSON.stringify(entry.keywords_ar),
+        entry.priority,
+        1,
+      ),
+    ),
+  );
+}
 function faqForJson(row) {
   return {
     ...row,
@@ -4134,25 +4157,37 @@ function faqForJson(row) {
 async function workcruteAiReply(env, query, language, faqContext = []) {
   if (!env.AI?.run) return "";
   const languageName = { fr: "français", en: "English", ar: "العربية" }[language] || "français";
-  const context = faqContext.slice(0, 3).map((item) => `Q: ${item.entry[`question_${language}`] || item.entry.question_fr}\nR: ${item.entry[`answer_${language}`] || item.entry.answer_fr}`).join("\n\n");
-  const system = `Tu es l'assistant officiel de Workcrute, la plateforme RH de Call Management Security. Réponds uniquement aux questions sur Workcrute : offres et métiers, candidature, CV, formulaire, compte, connexion, espace candidat, recruteur, employé, congés, factures, notifications, e-mails et navigation du site. Réponds en ${languageName}. Sois bref, concret et prudent.
-Faits obligatoires de Workcrute : un visiteur peut déposer une candidature sans créer de compte ; le parcours public commence par le dépôt du CV, puis l'identité, le métier et le questionnaire/formulaire, puis la confirmation ; les formats CV acceptés sont PDF, DOC et DOCX, avec une limite de 8 Mo ; l'envoi final se fait uniquement à l'étape Confirmation ; les métiers affichés sont ceux de Call Management Security et sont gérés par l'administrateur. Ne dis jamais qu'un compte est obligatoire pour déposer un CV ou postuler.
-Ne donne jamais de recette de cuisine, de conseil médical ou juridique, de code, de conseil financier, ni d'information inventée. Si la réponse n'est pas certaine avec les faits et le contexte fourni, dis que tu ne peux pas la confirmer et oriente vers la page concernée. Pour toute question hors sujet, dis poliment que tu aides uniquement pour Workcrute et propose de reformuler. Ne prétends jamais être humain et ne demande jamais de mot de passe, code ou secret.`;
-  const result = await env.AI.run("@cf/meta/llama-3.2-1b-instruct", {
+  const context = faqContext.slice(0, 8).map((item) => `Q: ${item.entry[`question_${language}`] || item.entry.question_fr}\nR: ${item.entry[`answer_${language}`] || item.entry.answer_fr}`).join("\n\n");
+  const system = `Tu es l'assistant officiel de Workcrute, une plateforme RH. Réponds en ${languageName}, avec une réponse naturelle et directement utile, en 2 à 5 phrases.
+Tu aides uniquement pour Workcrute : candidature, CV, offres, comptes, connexion, espace candidat, recruteur, employé, congés, factures, notifications, emails et navigation. Tu peux saluer l'utilisateur et expliquer brièvement ce que tu sais faire.
+Source de vérité : les faits Workcrute et les extraits FAQ fournis dans le contexte. Ne crée jamais de règle, de délai, d'adresse ou de fonctionnalité absente du contexte. Si l'information manque, dis clairement que tu ne peux pas la confirmer et oriente vers la page ou le support Workcrute.
+Faits publics obligatoires : un visiteur peut déposer une candidature sans créer de compte ; le parcours commence par le CV, puis l'identité, le profil et la confirmation ; les CV acceptés sont PDF, DOC et DOCX, avec une limite de 8 Mo ; aucun mot de passe, code, token ou secret ne doit être demandé.
+Refuse poliment les sujets médicaux, juridiques, financiers, le code, les recettes et les questions sans rapport. Ne prétends jamais être humain.`;
+  const result = await Promise.race([
+    env.AI.run(env.CHATBOT_MODEL || "@cf/meta/llama-3.2-1b-instruct", {
     messages: [
       { role: "system", content: system },
       ...(context ? [{ role: "system", content: `Voici des informations publiques de référence, à utiliser si elles répondent à la question :\n${context}` }] : []),
       { role: "user", content: query },
     ],
-    max_tokens: 260,
-    temperature: 0.2,
-  });
+    max_tokens: 280,
+    temperature: 0.25,
+    }),
+    new Promise((_, reject) => setTimeout(() => reject(new Error("AI_TIMEOUT")), 7000)),
+  ]);
   const answer = typeof result?.response === "string" ? result.response.trim() : "";
   return answer.length > 1800 ? `${answer.slice(0, 1797).trim()}...` : answer;
 }
+async function publicFaqEntries(env) {
+  await ensureV2FaqSeed(env);
+  const { results = [] } = await env.DB.prepare(
+    "SELECT * FROM faq_entries WHERE id LIKE 'v2-%' AND is_active=1 ORDER BY priority DESC,updated_at DESC",
+  ).all();
+  return results.length ? results.map(faqForJson) : V2_PUBLIC_FAQ;
+}
 async function publicFaq(request, env, path) {
   if (path === "/api/faq" && request.method === "GET") {
-    return json({ items: V2_PUBLIC_FAQ.map(faqForJson) });
+    return json({ items: await publicFaqEntries(env) });
   }
   if (path === "/api/chatbot/ask" && request.method === "POST") {
     const platform = await getPlatformSettings(env);
@@ -4163,7 +4198,8 @@ async function publicFaq(request, env, path) {
         ? body.language
         : "fr";
     if (!query) return bad("Question obligatoire.");
-    const ranked = V2_PUBLIC_FAQ
+    const faqEntries = await publicFaqEntries(env);
+    const ranked = faqEntries
         .map((entry) => ({ entry, score: faqScore(entry, query, language) }))
         .sort(
           (a, b) => b.score - a.score || b.entry.priority - a.entry.priority,
@@ -4171,7 +4207,7 @@ async function publicFaq(request, env, path) {
     let best = ranked[0];
     const directApply = /\b(cv|candid|postul|d[eé]pos|resume|application)\b|سيرة|ترشح|تقديم/i.test(query),
       offTopic = /\b(recette|cuisine|recipe|cooking|medical|m[eé]dical|code|programmation)\b|وصفة|طبخ|برمجة|طبي/i.test(query),
-      directEntry = directApply ? V2_PUBLIC_FAQ.find((entry) => entry.id === "v2-apply") : null,
+      directEntry = directApply ? faqEntries.find((entry) => entry.id === "v2-apply") : null,
       faqMatched = Boolean(directEntry || (best && best.score >= platform.chatbot.similarityThreshold)),
       id = crypto.randomUUID();
     if (directEntry) best = { entry: directEntry, score: 1 };
@@ -4180,14 +4216,21 @@ async function publicFaq(request, env, path) {
       en: "I am the Workcrute assistant. I can help with jobs, applications, accounts and Workcrute workspaces, but not with that topic.",
       ar: "أنا مساعد Workcrute. يمكنني المساعدة في الوظائف والطلبات والحسابات ومساحات Workcrute، وليس في هذا الموضوع.",
     };
-    let answer = offTopic ? refusal[language] : faqMatched ? best.entry[`answer_${language}`] : "";
+    const greeting = /^(bonjour|bonsoir|salut|hello|hi|hey|merci|thanks|شكرا|مرحبا|السلام عليكم)[!?.,\s]*$/i.test(query);
+    let answer = offTopic ? refusal[language] : greeting ? ({ fr: "Bonjour ! Je peux vous aider avec les candidatures, les CV, les offres et les espaces Workcrute. Que souhaitez-vous faire ?", en: "Hello! I can help with applications, resumes, jobs and Workcrute workspaces. What would you like to do?", ar: "مرحباً! يمكنني مساعدتك في الطلبات والسير الذاتية والوظائف ومساحات Workcrute. ماذا تريد أن تفعل؟" }[language]) : faqMatched ? best.entry[`answer_${language}`] : "";
     let ai = false;
-    if (!faqMatched && !offTopic) {
+    if (!offTopic && !greeting && !faqMatched) {
       try {
-        answer = await workcruteAiReply(env, query, language, ranked);
-        ai = Boolean(answer);
+        const generated = await workcruteAiReply(env, query, language, ranked);
+        if (generated) {
+          answer = generated;
+          ai = true;
+        } else if (faqMatched) {
+          answer = best.entry[`answer_${language}`];
+        }
       } catch (error) {
         console.warn("WORKCRUTE_AI_UNAVAILABLE", String(error?.message || error));
+        answer = faqMatched ? best.entry[`answer_${language}`] : "";
       }
     }
     const matched = Boolean(answer);
@@ -4200,7 +4243,7 @@ async function publicFaq(request, env, path) {
         normalizeFaq(query),
         language,
         matched ? 1 : 0,
-        null,
+        faqMatched ? best.entry.id : null,
         offTopic ? "guardrail" : faqMatched ? best.entry.category : ai ? "ai" : null,
         best?.score || 0,
       )
@@ -4289,7 +4332,7 @@ async function adminFaq(request, env, path) {
   }
   if (!id && request.method === "POST") {
     const p = faqPayload(await request.json().catch(() => ({}))),
-      newId = crypto.randomUUID();
+      newId = `v2-${crypto.randomUUID()}`;
     await env.DB.prepare(
       "INSERT INTO faq_entries(id,category,question_fr,answer_fr,question_en,answer_en,question_ar,answer_ar,keywords_fr,keywords_en,keywords_ar,priority,is_active) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
     )
@@ -4410,7 +4453,7 @@ async function adminChatbotAnalytics(request, env, path) {
       .bind(queryId)
       .first();
     if (!query) return bad("Question inconnue introuvable.", 404);
-    const id = crypto.randomUUID(),
+    const id = `v2-${crypto.randomUUID()}`,
       fields = {
         fr: ["question_fr", "keywords_fr"],
         en: ["question_en", "keywords_en"],
