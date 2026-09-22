@@ -4162,8 +4162,8 @@ function directFaqId(query) {
   if (/\b(document|lettre|cover letter|fichier|مستند|رسالة)\b/.test(value)) return "v2-documents";
   if (/\b(étape|etape|parcours|formulaire|questionnaire|steps|process|form|خطوات|نموذج)\b/.test(value)) return "v2-visitor-application-steps";
   if (/\b(suivre|suivi|statut|track|tracking|status|متابعة|حالة)\b/.test(value) && /\b(candid|application|demande|طلب)\b/.test(value)) return "v2-application-status";
-  if (/\b(confirma|référence|reference|confirm|envoyée|submitted|تأكيد|مرجع)\b/.test(value)) return "v2-visitor-confirmation";
-  if (/\b(cv|candid|postul|dépos|resume|application|سيرة|ترشح|تقديم)\b/.test(value)) return "v2-apply";
+  if (/\b(confirma|référence|reference|confirm|savoir si|reçu|received|submitted|sent|envoyee|تأكيد|مرجع)\b/.test(value)) return "v2-visitor-confirmation";
+  if (/\b(envoyer|déposer|deposer|submit|postuler|apply|candidature|cv|resume|application|سيرة|ترشح|تقديم)\b/.test(value)) return "v2-apply";
   return null;
 }
 async function workcruteAiReply(env, query, language, faqContext = []) {
