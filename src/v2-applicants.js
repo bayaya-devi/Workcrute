@@ -1,6 +1,7 @@
 import { validateApplicationAnswers } from "./v2-questions.js";
 import { createSummaryPdf } from "./admin-email.js";
 import { sendTransactionalEmail } from "./email-provider.js";
+import { boundedFormData } from "./bounded-form-data.js";
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const CHUNK_BYTES = 512 * 1024;
 const MIME_BY_EXTENSION = {
@@ -97,7 +98,7 @@ async function storeFile(env, applicantId, kind, file) {
 async function enforceRateLimit(request, env) {
   const address =
     request.headers.get("cf-connecting-ip") ||
-    request.headers.get("x-forwarded-for")?.split(",")[0] ||
+    (env.ENVIRONMENT !== "production" ? request.headers.get("x-forwarded-for")?.split(",")[0] : null) ||
     "local";
   const fingerprint = await digest(`${address}:${env.SESSION_PEPPER || "workcrute"}`);
   await env.DB.prepare(
@@ -147,8 +148,11 @@ export async function submitV2Applicant(request, env) {
   }
   let form;
   try {
-    form = await request.formData();
-  } catch {
+    form = await boundedFormData(request, MAX_FILE_BYTES * 2 + 128 * 1024);
+  } catch (error) {
+    if (error instanceof RangeError && error.message === "PAYLOAD_TOO_LARGE") {
+      return fail("PAYLOAD_TOO_LARGE", "Les documents envoyés sont trop volumineux.", 413);
+    }
     return fail(
       "INVALID_MULTIPART",
       "Le formulaire envoyé n’est pas valide. Rechargez la page puis réessayez.",
