@@ -71,9 +71,18 @@ export async function v2SessionFor(request, env, roles) {
 }
 
 export async function requireV2Session(request, env, roles) {
+  assertV2Origin(request, env);
   const session = await v2SessionFor(request, env, roles);
   if (!session) throw bad("Authentification requise.", 401);
   return session;
+}
+
+function assertV2Origin(request, env) {
+  if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return;
+  const origin = request.headers.get("origin");
+  if (origin && origin !== new URL(request.url).origin && origin !== env.APP_ORIGIN) {
+    throw bad("Origine de requête refusée.", 403);
+  }
 }
 
 async function login(request, env) {
@@ -83,14 +92,15 @@ async function login(request, env) {
   const password = typeof body.password === "string" && body.password.length <= 256 ? body.password : "";
   if (!firstName || !lastName || !password) return bad("Nom, prénom et mot de passe sont obligatoires.", 422);
   const identity = `${normalizeName(firstName)}:${normalizeName(lastName)}`;
-  const address = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for")?.split(",")[0] || "local";
+  const address = request.headers.get("cf-connecting-ip") ||
+    (env.ENVIRONMENT !== "production" ? request.headers.get("x-forwarded-for")?.split(",")[0] : null) || "local";
   const fingerprint = await digest(`${address}:${env.SESSION_PEPPER}`);
   const identityHash = await digest(`${identity}:${env.SESSION_PEPPER}`);
   await env.DB.prepare("DELETE FROM v2_login_attempts WHERE attempted_at<datetime('now','-1 day')").run();
   const failures = await env.DB.prepare(
-    "SELECT COUNT(*) total FROM v2_login_attempts WHERE fingerprint=? AND identity_hash=? AND success=0 AND attempted_at>=datetime('now','-15 minutes')",
-  ).bind(fingerprint, identityHash).first();
-  if (Number(failures?.total || 0) >= 5) return bad("Trop de tentatives. Réessayez dans quelques minutes.", 429);
+    "SELECT SUM(CASE WHEN fingerprint=? AND identity_hash=? THEN 1 ELSE 0 END) total,SUM(CASE WHEN identity_hash=? THEN 1 ELSE 0 END) identity_total,SUM(CASE WHEN fingerprint=? THEN 1 ELSE 0 END) address_total FROM v2_login_attempts WHERE (fingerprint=? OR identity_hash=?) AND success=0 AND attempted_at>=datetime('now','-15 minutes')",
+  ).bind(fingerprint, identityHash, identityHash, fingerprint, fingerprint, identityHash).first();
+  if (Number(failures?.total || 0) >= 5 || Number(failures?.identity_total || 0) >= 20 || Number(failures?.address_total || 0) >= 50) return bad("Trop de tentatives. Réessayez dans quelques minutes.", 429);
   const account = await env.DB.prepare(
     "SELECT * FROM v2_accounts WHERE first_name_normalized=? AND last_name_normalized=? AND account_status='active'",
   ).bind(normalizeName(firstName), normalizeName(lastName)).first();
@@ -176,6 +186,7 @@ export async function configureV2Admin(request, env) {
 }
 
 export async function v2Auth(request, env, path) {
+  assertV2Origin(request, env);
   if (path === "/api/v2/auth/login" && request.method === "POST") return login(request, env);
   if (path === "/api/v2/auth/logout" && request.method === "POST") return logout(request, env);
   if (path === "/api/v2/auth/me" && request.method === "GET") return me(request, env);

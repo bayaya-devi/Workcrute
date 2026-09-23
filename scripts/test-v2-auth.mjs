@@ -28,4 +28,10 @@ try{
   for(let index=0;index<5;index+=1)await req("/api/v2/auth/login",{method:"POST",body:{firstName:"Control",lastName:"Workcrute",password:"incorrect"},ip:"198.51.100.82"});
   result=await req("/api/v2/auth/login",{method:"POST",body:{firstName:"Control",lastName:"Workcrute",password:"incorrect"},ip:"198.51.100.82"});check(result.response.status===429,"limitation des tentatives");
   process.stdout.write("V2 authentication integration: OK\n");
+  for(let index=0;index<20;index+=1)await req("/api/v2/auth/login",{method:"POST",body:{firstName:"Distributed",lastName:"Test",password:"incorrect"},ip:`198.51.100.${100+index}`});
+  result=await req("/api/v2/auth/login",{method:"POST",body:{firstName:"Distributed",lastName:"Test",password:"incorrect"},ip:"198.51.100.150"});check(result.response.status===429,"limitation par identité malgré rotation des adresses IP");
+  for(const path of ["/api/v2/auth/login","/api/v2/auth/logout","/api/v2/employee/settings"]){
+    const response=await fetch(base+path,{method:path.endsWith("settings")?"PATCH":"POST",headers:{origin:"https://untrusted.example","content-type":"application/json"},body:JSON.stringify({firstName:"Control",lastName:"Workcrute",password,language:"ar"})});
+    check(response.status===403,`origine étrangère refusée: ${path}`);
+  }
 }finally{if(process.platform==="win32")spawnSync("taskkill",["/pid",String(server.pid),"/T","/F"],{stdio:"ignore"});else server.kill("SIGTERM");}
