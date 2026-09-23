@@ -6,8 +6,9 @@
     return;
   }
   const api = async (path, options = {}) => {
-    const response = await fetch(path, {
-      credentials: "same-origin",
+    const target = apiUrl(path);
+    const response = await fetch(target, {
+      credentials: target.startsWith("http") ? "include" : "same-origin",
       ...options,
       headers: options.body instanceof FormData ? options.headers : { "content-type": "application/json", ...(options.headers || {}) },
     });

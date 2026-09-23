@@ -1,4 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap");
+@import url("./theme.css");
 
 :root {
   --wc-primary: #2563eb;
@@ -233,10 +234,12 @@ html[dir="rtl"] .wc-drawer-panel { transform: translateX(-105%); }
 .wc-choice:hover { color: var(--wc-text); border-color: var(--wc-primary); transform: translateY(-3px); }
 .wc-choice-icon { width: 52px; height: 52px; display: grid; place-items: center; margin-block-end: 20px; color: var(--wc-primary); background: var(--wc-primary-light); border-radius: 13px; font-size: 22px; }
 
-.wc-chat-launcher { position: fixed; inset-inline-end: 24px; inset-block-end: 18px; z-index: 1050; width: 48px; height: 48px; display: grid; place-items: center; color: #334155; background: rgb(226 232 240 / .48); border: 1px solid rgb(148 163 184 / .42); border-radius: 50%; box-shadow: 0 4px 14px rgb(15 23 42 / .08); cursor: pointer; font-size: 20px; opacity: .74; transition: opacity .18s ease, background-color .18s ease, border-color .18s ease, transform .18s ease; }
-html[dir="rtl"] .wc-chat-launcher { inset-inline-end: auto; inset-inline-start: 24px; }
-.wc-chat-launcher:hover, .wc-chat-launcher:focus-visible { color: #1e293b; background: rgb(226 232 240 / .84); border-color: rgb(100 116 139 / .64); opacity: 1; transform: translateY(-2px); }
-.wc-chat-launcher:focus-visible { outline: 2px solid var(--wc-primary); outline-offset: 3px; }
+.wc-utility { position: fixed; inset-inline-end: 18px; inset-block-end: 18px; z-index: 1050; display: grid; justify-items: end; gap: 8px; }
+.wc-utility-action { width: 42px; height: 42px; display: grid; place-items: center; padding: 0; color: var(--wc-dark); background: rgb(255 255 255 / .28); border: 1px solid rgb(148 163 184 / .42); border-radius: 50%; box-shadow: 0 4px 14px rgb(15 23 42 / .08); cursor: pointer; opacity: .72; transition: opacity .18s ease, background-color .18s ease, transform .18s ease; }
+.wc-utility-actions { display: grid; gap: 7px; }
+.wc-utility-action:hover, .wc-utility-action:focus-visible { background: rgb(255 255 255 / .7); opacity: 1; transform: translateY(-2px); }
+.wc-utility-action:focus-visible { outline: 2px solid var(--wc-primary); outline-offset: 3px; }
+html[dir="rtl"] .wc-utility { inset-inline-end: auto; inset-inline-start: 18px; justify-items: start; }
 .wc-chat { position: fixed; inset-inline-end: 22px; inset-block-end: 92px; z-index: 1050; width: min(390px, calc(100vw - 32px)); height: min(570px, calc(100vh - 120px)); display: none; grid-template-rows: auto 1fr auto; overflow: hidden; background: #fff; border: 1px solid var(--wc-border); border-radius: 18px; box-shadow: 0 24px 60px rgb(15 23 42 / 20%); }
 html[dir="rtl"] .wc-chat { inset-inline-end: auto; inset-inline-start: 22px; }
 .wc-chat.is-open { display: grid; }
@@ -332,8 +335,8 @@ html[dir="rtl"] .wc-message--user { border-radius: 12px 12px 12px 3px; }
   .wc-auth-card { padding: 24px 18px; }
   .wc-form-actions { align-items: stretch; flex-direction: column-reverse; }
   .wc-form-actions .wc-button { width: 100%; }
-  .wc-chat-launcher { inset-inline-end: 16px; inset-block-end: 16px; }
-  html[dir="rtl"] .wc-chat-launcher { inset-inline-start: 16px; }
+  .wc-utility { inset-inline-end: 12px; inset-block-end: 12px; }
+  html[dir="rtl"] .wc-utility { inset-inline-start: 12px; }
   .wc-chat { inset: auto 0 0 0 !important; width: 100%; height: 90vh; border-radius: 18px 18px 0 0; }
   .wc-chat-form { grid-template-columns: 1fr; }
   .wc-chat-form .wc-button { width: 100%; }
@@ -394,9 +397,7 @@ html[dir="rtl"] .wc-message--user { border-radius: 12px 12px 12px 3px; }
 .wc-role-sheets article { display: flex; flex-direction: column; min-height: 440px; }
 .wc-role-sheets article h4 { margin: 20px 0 6px; color: var(--wc-dark); font-size: 13px; font-weight: 800; text-transform: uppercase; }
 .wc-role-sheets article a { margin-top: auto; color: var(--wc-primary); font-weight: 800; }
-.wc-back-to-top { position: fixed; z-index: 40; inset-inline-end: 24px; bottom: 92px; display: grid; width: 40px; height: 40px; place-items: center; color: #475569; background: rgb(226 232 240 / .48); border: 1px solid rgb(148 163 184 / .42); border-radius: 50%; box-shadow: 0 4px 14px rgb(15 23 42 / .08); cursor: pointer; opacity: .74; transition: opacity .18s ease, background-color .18s ease, border-color .18s ease, transform .18s ease; }
-.wc-back-to-top:hover, .wc-back-to-top:focus-visible { color: #1e293b; background: rgb(226 232 240 / .84); border-color: rgb(100 116 139 / .64); opacity: 1; transform: translateY(-2px); }
-.wc-back-to-top:focus-visible { outline: 2px solid var(--wc-primary); outline-offset: 3px; }
+.wc-back-to-top { display: none !important; }
 .wc-v2-service { background: #eef8f7; }
 .wc-v2-service-grid { display: grid; grid-template-columns: .85fr 1.15fr; gap: 80px; align-items: start; }
 .wc-v2-service-points { display: grid; gap: 0; border-block-start: 1px solid #b8d6d1; }
@@ -408,12 +409,13 @@ html[dir="rtl"] .wc-message--user { border-radius: 12px 12px 12px 3px; }
 .wc-v2-final p:last-child { margin: 12px 0 0; }
 @keyframes wc-cta-border { 50% { border-color: #79ade7; } }
 @media (max-width: 600px) { .wc-v2-final { padding: 20px; } .wc-v2-final h2 { font-size: 24px; } .wc-v2-final > .wc-button { width: 100%; } }
-@media (max-width: 600px) { .wc-back-to-top { inset-inline-end: 16px; bottom: 78px; } }
+@media (max-width: 600px) { .wc-utility { inset-inline-end: 12px; inset-block-end: 12px; } html[dir="rtl"] .wc-utility { inset-inline-start: 12px; } }
 @media (prefers-reduced-motion: reduce) { .wc-v2-final { animation: none; } }
 .wc-v2-final h2 { margin: 0; }
 .wc-login-actions { display: flex; gap: 12px; }
 .wc-login-actions > .wc-button { flex: 1; min-width: 0; min-height: 44px; white-space: normal; text-align: center; }
 @media (max-width: 360px) { .wc-login-actions { flex-direction: column; } }
+@media (max-width: 480px) { .wc-login-actions { flex-direction: column; } .wc-login-actions > .wc-button { width: 100%; } }
 .wc-reveal-enabled [data-reveal] { opacity: 0; transform: translateY(16px); transition: opacity .35s ease, transform .35s ease; }
 [data-reveal].is-visible { opacity: 1; transform: none; }
 .wc-footer-grid { grid-template-columns: 1.6fr repeat(3, 1fr); }

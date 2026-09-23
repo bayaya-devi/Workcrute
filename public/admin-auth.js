@@ -1,4 +1,5 @@
 (() => {
+  if (!window.WorkcruteTheme) { const script = document.createElement("script"); script.src = "/theme.js"; document.head.append(script); }
   const form = document.querySelector("[data-admin-auth]");
   if (!form) return;
   const status = form.querySelector("[data-status]");
@@ -28,8 +29,8 @@
     status.textContent = copy[lang()].loading;
     button.disabled = true;
     try {
-      let response;try{response = await fetch(`/api/admin/auth/step-${step}`, {
-        method:"POST",credentials:"same-origin",headers:{"content-type":"application/json"},
+      let response;try{const target=window.workcrute?.apiUrl?.(`/api/admin/auth/step-${step}`)||`/api/admin/auth/step-${step}`;response = await fetch(target, {
+        method:"POST",credentials:target.startsWith("http")?"include":"same-origin",headers:{"content-type":"application/json"},
         body:JSON.stringify({ secret: form.secret.value }),
       });}catch(error){throw(window.WorkcruteErrors?.networkError()||error);}
       const data = await response.json().catch(() => ({}));

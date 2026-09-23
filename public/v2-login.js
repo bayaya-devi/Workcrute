@@ -14,9 +14,14 @@
     if (invalid) { error.textContent = i18n.t("v2_login_required");invalid.focus();return; }
     sending = true;submit.disabled = true;submit.textContent = i18n.t("v2_login_loading");error.textContent = "";
     try {
-      const response = await fetch("/api/v2/auth/login", { method:"POST",credentials:"same-origin",headers:{"content-type":"application/json"},body:JSON.stringify(Object.fromEntries(new FormData(form))) });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(i18n.t("v2_login_error"));
+      const request = window.workcrute?.api
+        ? window.workcrute.api("/api/v2/auth/login", { method:"POST", body:JSON.stringify(Object.fromEntries(new FormData(form))) })
+        : fetch("/api/v2/auth/login", { method:"POST",credentials:"same-origin",headers:{"content-type":"application/json"},body:JSON.stringify(Object.fromEntries(new FormData(form))) }).then(async response => {
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(body.userMessage || body.error || i18n.t("v2_login_error"));
+          return body;
+        });
+      const result = await request;
       if (result.account?.language) i18n.apply(result.account.language);
       location.replace(result.redirect);
     } catch (failure) { error.textContent = failure.message || i18n.t("v2_login_error"); }

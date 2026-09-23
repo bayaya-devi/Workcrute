@@ -1,0 +1,77 @@
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --wc-bg: #0b1220;
+  --wc-card: #121c2d;
+  --wc-text: #e5edf8;
+  --wc-dark: #f4f7fb;
+  --wc-muted: #a7b5c9;
+  --wc-border: #2b3a50;
+  --wc-primary-light: #172b49;
+  --adm-bg: #0b1220;
+  --adm-card: #121c2d;
+  --adm-line: #2b3a50;
+  --adm-text: #e5edf8;
+  --adm-muted: #a7b5c9;
+  --emp-bg: #0b1220;
+  --emp-border: #2b3a50;
+  --emp-text: #e5edf8;
+  --emp-muted: #a7b5c9;
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme]) { color-scheme: dark; --wc-bg:#0b1220; --wc-card:#121c2d; --wc-text:#e5edf8; --wc-dark:#f4f7fb; --wc-muted:#a7b5c9; --wc-border:#2b3a50; --wc-primary-light:#172b49; --adm-bg:#0b1220; --adm-card:#121c2d; --adm-line:#2b3a50; --adm-text:#e5edf8; --adm-muted:#a7b5c9; --emp-bg:#0b1220; --emp-border:#2b3a50; --emp-text:#e5edf8; --emp-muted:#a7b5c9; }
+}
+html[data-theme="dark"] body,
+html[data-theme="dark"] .wc-section--white,
+html[data-theme="dark"] .wc-card,
+html[data-theme="dark"] .wc-faq,
+html[data-theme="dark"] .wc-auth-panel,
+html[data-theme="dark"] .wc-chat,
+html[data-theme="dark"] .emp-topbar,
+html[data-theme="dark"] .emp-card,
+html[data-theme="dark"] .bill-dialog,
+html[data-theme="dark"] .adm-card,
+html[data-theme="dark"] .adm-topbar,
+html[data-theme="dark"] .adm-dialog,
+html[data-theme="dark"] .adm-auth-panel,
+html[data-theme="dark"] .adm-auth-card { background-color:var(--wc-card); color:var(--wc-text); }
+html[data-theme="dark"] .wc-section--tint,
+html[data-theme="dark"] .wc-auth,
+html[data-theme="dark"] .emp-content { background-color:var(--wc-bg); }
+html[data-theme="dark"] .wc-language,
+html[data-theme="dark"] .wc-button--secondary,
+html[data-theme="dark"] .wc-input,
+html[data-theme="dark"] .wc-field input,
+html[data-theme="dark"] .wc-field select,
+html[data-theme="dark"] .wc-field textarea,
+html[data-theme="dark"] .wc-chat-form,
+html[data-theme="dark"] .emp-settings select,
+html[data-theme="dark"] .emp-button.secondary,
+html[data-theme="dark"] .bill-form input,
+html[data-theme="dark"] .bill-form select,
+html[data-theme="dark"] .bill-form textarea,
+html[data-theme="dark"] .bill-filter input,
+html[data-theme="dark"] .bill-filter select,
+html[data-theme="dark"] .adm-input,
+html[data-theme="dark"] .adm-button.secondary { background-color:#172337; color:var(--wc-text); border-color:var(--wc-border); }
+html[data-theme="dark"] h1,html[data-theme="dark"] h2,html[data-theme="dark"] h3,
+html[data-theme="dark"] .wc-nav a,html[data-theme="dark"] .wc-drawer-nav a,
+html[data-theme="dark"] .wc-button--secondary,html[data-theme="dark"] .wc-button--ghost,
+html[data-theme="dark"] .wc-faq-question,html[data-theme="dark"] .emp-head h1,
+html[data-theme="dark"] .emp-card h2,html[data-theme="dark"] .adm-card h1,
+html[data-theme="dark"] .adm-card h2,html[data-theme="dark"] .adm-card h3 { color:var(--wc-dark); }
+html[data-theme="dark"] .wc-card,html[data-theme="dark"] .wc-faq,
+html[data-theme="dark"] .emp-card,html[data-theme="dark"] .adm-card,
+html[data-theme="dark"] .bill-section,html[data-theme="dark"] .bill-row,
+html[data-theme="dark"] .bill-notification { border-color:var(--wc-border); }
+html[data-theme="dark"] .wc-chat-body,html[data-theme="dark"] .wc-chat-message--bot,
+html[data-theme="dark"] .wc-drawer-panel { background-color:var(--wc-card); }
+html[data-theme="dark"] .wc-chat-message--user,html[data-theme="dark"] .emp-empty,
+html[data-theme="dark"] .bill-status { background-color:#21324c; color:var(--wc-text); }
+html[data-theme="dark"] input::placeholder,html[data-theme="dark"] textarea::placeholder { color:#8ea0b8; }
+html[data-theme="light"] { color-scheme: light; --wc-text:#111827; --wc-dark:#0f172a; --wc-muted:#475569; --wc-border:#cbd5e1; --adm-text:#142033; --adm-muted:#475569; --emp-text:#16233b; --emp-muted:#526176; }
+html[data-theme="light"] .wc-lead,html[data-theme="light"] .wc-muted,html[data-theme="light"] .wc-field small { color:#475569; }
+html[data-theme="light"] .wc-document-input label > span:not(.wc-button),html[data-theme="light"] .wc-apply-review dt { color:#475569; }
+.wc-theme-toggle { position:fixed; z-index:1000; inset-block-end:18px; inset-inline-end:18px; width:38px; height:38px; display:grid; place-items:center; padding:0; color:#fff; background:var(--wc-dark,#0f172a); border:1px solid rgb(255 255 255 / 18%); border-radius:50%; box-shadow:0 5px 18px rgb(15 23 42 / 20%); cursor:pointer; opacity:.86; transition:opacity .18s,transform .18s; }
+.wc-theme-toggle:hover { opacity:1; transform:translateY(-2px); }
+.wc-theme-toggle:focus-visible { outline:3px solid rgb(37 99 235 / 45%); outline-offset:3px; }
+html[dir="rtl"] .wc-theme-toggle { inset-inline-end:auto; inset-inline-start:18px; }
