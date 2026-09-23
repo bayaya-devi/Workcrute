@@ -393,16 +393,17 @@ async function deliver(env, row) {
 
 export async function processV2ApplicantEmails(env, limit = 20) {
   const { results = [] } = await env.DB.prepare(
-    "SELECT o.*,a.reference,a.first_name,a.last_name,a.email,a.phone,a.city,a.country,a.professional_title,a.domain,a.domain_other,a.experience_level,a.availability,a.motivation,a.created_at FROM v2_applicant_email_outbox o JOIN v2_applicants a ON a.id=o.applicant_id WHERE o.status IN ('pending','failed') AND o.attempts<o.max_attempts AND o.next_attempt_at<=CURRENT_TIMESTAMP ORDER BY o.created_at LIMIT ?",
+    "SELECT o.*,a.reference,a.first_name,a.last_name,a.email,a.phone,a.city,a.country,a.professional_title,a.domain,a.domain_other,a.experience_level,a.availability,a.motivation,a.created_at FROM v2_applicant_email_outbox o JOIN v2_applicants a ON a.id=o.applicant_id WHERE ((o.status IN ('pending','failed') AND o.next_attempt_at<=CURRENT_TIMESTAMP) OR (o.status='processing' AND o.updated_at<datetime('now','-5 minutes'))) AND o.attempts<o.max_attempts ORDER BY o.created_at LIMIT ?",
   )
     .bind(limit)
     .all();
   for (const row of results) {
-    await env.DB.prepare(
-      "UPDATE v2_applicant_email_outbox SET status='processing',updated_at=CURRENT_TIMESTAMP WHERE id=?",
+    const claimed = await env.DB.prepare(
+      "UPDATE v2_applicant_email_outbox SET status='processing',updated_at=CURRENT_TIMESTAMP WHERE id=? AND ((status IN ('pending','failed') AND next_attempt_at<=CURRENT_TIMESTAMP) OR (status='processing' AND updated_at<datetime('now','-5 minutes'))) AND attempts<max_attempts",
     )
       .bind(row.id)
       .run();
+    if (!claimed.meta?.changes) continue;
     try {
       await deliver(env, row);
       await env.DB.prepare(
