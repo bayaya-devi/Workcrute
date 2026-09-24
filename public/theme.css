@@ -75,3 +75,78 @@ html[data-theme="light"] .wc-document-input label > span:not(.wc-button),html[da
 .wc-theme-toggle:hover { opacity:1; transform:translateY(-2px); }
 .wc-theme-toggle:focus-visible { outline:3px solid rgb(37 99 235 / 45%); outline-offset:3px; }
 html[dir="rtl"] .wc-theme-toggle { inset-inline-end:auto; inset-inline-start:18px; }
+
+/* Dark mode uses distinct surface and foreground colours.  Do not reuse the
+   heading colour for panel backgrounds: that was making white copy unreadable. */
+html[data-theme="dark"] {
+  --wc-card: #142033;
+  --wc-text: #f1f5f9;
+  --wc-dark: #f1f5f9;
+  --wc-muted: #c2cede;
+  --wc-border: #3a506e;
+  --wc-strong: #10243f;
+  --wc-control: #182b46;
+  --adm-card: #142033;
+  --adm-text: #f1f5f9;
+  --adm-muted: #c2cede;
+  --emp-text: #f1f5f9;
+  --emp-muted: #c2cede;
+}
+html[data-theme="dark"] .wc-page-hero,
+html[data-theme="dark"] .wc-search-panel,
+html[data-theme="dark"] .wc-v2-steps article,
+html[data-theme="dark"] .wc-apply-form,
+html[data-theme="dark"] .wc-apply-success,
+html[data-theme="dark"] .wc-drawer-panel { background-color: var(--wc-card) !important; color: var(--wc-text); }
+html[data-theme="dark"] .wc-lead, html[data-theme="dark"] .wc-muted,
+html[data-theme="dark"] .emp-muted, html[data-theme="dark"] .emp-head p,
+html[data-theme="dark"] .adm-muted, html[data-theme="dark"] .bill-row small,
+html[data-theme="dark"] .bill-empty, html[data-theme="dark"] .bill-history small { color: var(--wc-muted) !important; }
+html[data-theme="dark"] .emp-settings input,
+html[data-theme="dark"] .emp-settings select,
+html[data-theme="dark"] .wc-language,
+html[data-theme="dark"] .wc-field input,
+html[data-theme="dark"] .wc-field select,
+html[data-theme="dark"] .wc-field textarea,
+html[data-theme="dark"] .wc-input,
+html[data-theme="dark"] .bill-form input,
+html[data-theme="dark"] .bill-form select,
+html[data-theme="dark"] .bill-form textarea,
+html[data-theme="dark"] .bill-filter input,
+html[data-theme="dark"] .bill-filter select,
+html[data-theme="dark"] .adm-input,
+html[data-theme="dark"] .adm-v2-identity select,
+html[data-theme="dark"] .adm-settings-tab,
+html[data-theme="dark"] .emp-button.secondary,
+html[data-theme="dark"] .adm-button.secondary { background-color: var(--wc-control) !important; color: var(--wc-text) !important; border-color: var(--wc-border) !important; }
+html[data-theme="dark"] .wc-chat-body,
+html[data-theme="dark"] .wc-chat-message--bot,
+html[data-theme="dark"] .wc-dropzone,
+html[data-theme="dark"] .wc-document-input,
+html[data-theme="dark"] .wc-consent,
+html[data-theme="dark"] .wc-v2-service,
+html[data-theme="dark"] .wc-v2-final { background-color: #172b46 !important; color: var(--wc-text); }
+html[data-theme="dark"] .wc-skip-link,
+html[data-theme="dark"] .wc-visual-card--match,
+html[data-theme="dark"] .wc-cta-panel,
+html[data-theme="dark"] .wc-auth-intro,
+html[data-theme="dark"] .wc-chat-head,
+html[data-theme="dark"] .wc-footer,
+html[data-theme="dark"] .wc-theme-toggle { background-color: var(--wc-strong) !important; color: #fff; }
+html[data-theme="dark"] .wc-cta-panel h2,
+html[data-theme="dark"] .wc-auth-intro h1,
+html[data-theme="dark"] .wc-footer h3 { color: #fff !important; }
+html[data-theme="dark"] .wc-cta-panel p,
+html[data-theme="dark"] .wc-auth-intro .wc-lead,
+html[data-theme="dark"] .wc-footer, html[data-theme="dark"] .wc-footer a,
+html[data-theme="dark"] .wc-chat-title small { color: #d5e3f5 !important; }
+html[data-theme="dark"] .emp-settings fieldset,
+html[data-theme="dark"] .wc-card, html[data-theme="dark"] .wc-faq,
+html[data-theme="dark"] .emp-card, html[data-theme="dark"] .adm-card,
+html[data-theme="dark"] .bill-section, html[data-theme="dark"] .bill-row,
+html[data-theme="dark"] .bill-notification { border-color: var(--wc-border) !important; }
+html[data-theme="dark"] .emp-empty, html[data-theme="dark"] .bill-status { background-color: #213a5d; color: var(--wc-text); }
+html[data-theme="dark"] .emp-status.is-approved, html[data-theme="dark"] .bill-status.is-approved, html[data-theme="dark"] .bill-status.is-paid { color: #9ef0c6; background-color: #123c36; }
+html[data-theme="dark"] .emp-status.is-refused, html[data-theme="dark"] .bill-status.is-refused { color: #fecaca; background-color: #4b2228; }
+html[data-theme="dark"] .emp-status.is-pending, html[data-theme="dark"] .bill-status.is-submitted { color: #fde68a; background-color: #493718; }
+html[data-theme="dark"] input::placeholder, html[data-theme="dark"] textarea::placeholder { color: #a9bad1; opacity: 1; }
