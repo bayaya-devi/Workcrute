@@ -29,7 +29,7 @@ import {
   v2SessionFor,
 } from "./v2-auth.js";
 import { v2Employee } from "./v2-employee.js";
-import { v2Leave } from "./v2-leave.js";
+import { processV2EmployeeEmails, v2Leave } from "./v2-leave.js";
 import { v2Invoices } from "./v2-invoices.js";
 import { billingApi, billingCycle } from "./v2-billing.js";
 import { V2_PUBLIC_FAQ } from "./v2-faq.js";
@@ -5421,6 +5421,7 @@ export default {
     ctx.waitUntil(processAdminEmailOutbox(env, 25));
     ctx.waitUntil(processRecruiterReferralEmails(env, 25));
     ctx.waitUntil(processV2ApplicantEmails(env, 25));
+    ctx.waitUntil(processV2EmployeeEmails(env, 25));
     ctx.waitUntil(processJobAlertDigests(env));
     ctx.waitUntil(processUserEmailOutbox(env, 25));
     ctx.waitUntil(env.DB.prepare("UPDATE job_offers SET status='closed',updated_at=CURRENT_TIMESTAMP WHERE status='published' AND deadline_at IS NOT NULL AND deadline_at<CURRENT_TIMESTAMP").run());

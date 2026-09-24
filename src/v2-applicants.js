@@ -66,6 +66,13 @@ async function validFile(file, required) {
     docx: [0x50, 0x4b],
   };
   if (!signatures[extension].every((byte, index) => header[index] === byte)) return "content";
+  if (extension === "docx") {
+    // A DOCX is an OOXML ZIP archive, not merely any file beginning with PK.
+    const archive = new TextDecoder("latin1").decode(await file.arrayBuffer());
+    const requiredParts = ["[Content_Types].xml", "word/document.xml"];
+    const unsafeParts = ["../", "\\..\\", "word/vbaProject.bin", "word/activeX/"];
+    if (!requiredParts.every((part) => archive.includes(part)) || unsafeParts.some((part) => archive.includes(part))) return "content";
+  }
   return null;
 }
 

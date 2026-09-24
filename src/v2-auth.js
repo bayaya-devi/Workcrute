@@ -32,7 +32,10 @@ async function digest(value) {
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
 }
-async function passwordHash(password, salt) {
+const PASSWORD_ITERATIONS = 600000;
+const LEGACY_PASSWORD_ITERATIONS = 100000;
+
+export async function hashV2Password(password, salt, iterations = PASSWORD_ITERATIONS) {
   const key = await crypto.subtle.importKey(
     "raw",
     encoder.encode(password),
@@ -41,11 +44,18 @@ async function passwordHash(password, salt) {
     ["deriveBits"],
   );
   const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", salt: encoder.encode(salt), iterations: 100000, hash: "SHA-256" },
+    { name: "PBKDF2", salt: encoder.encode(salt), iterations, hash: "SHA-256" },
     key,
     256,
   );
   return btoa(String.fromCharCode(...new Uint8Array(bits)));
+}
+
+export async function verifyV2Password(password, account) {
+  const current = await hashV2Password(password, account.password_salt);
+  if (safeEqual(current, account.password_hash)) return { valid: true, needsUpgrade: false };
+  const legacy = await hashV2Password(password, account.password_salt, LEGACY_PASSWORD_ITERATIONS);
+  return { valid: safeEqual(legacy, account.password_hash), needsUpgrade: safeEqual(legacy, account.password_hash) };
 }
 const safeEqual = (left, right) => {
   if (typeof left !== "string" || typeof right !== "string" || left.length !== right.length) return false;
@@ -104,18 +114,24 @@ async function login(request, env) {
   const account = await env.DB.prepare(
     "SELECT * FROM v2_accounts WHERE first_name_normalized=? AND last_name_normalized=? AND account_status='active'",
   ).bind(normalizeName(firstName), normalizeName(lastName)).first();
-  const valid = account && safeEqual(await passwordHash(password, account.password_salt), account.password_hash);
+  const passwordState = account ? await verifyV2Password(password, account) : { valid: false, needsUpgrade: false };
+  const valid = passwordState.valid;
   await env.DB.prepare(
     "INSERT INTO v2_login_attempts(fingerprint,identity_hash,success) VALUES(?,?,?)",
   ).bind(fingerprint, identityHash, valid ? 1 : 0).run();
   if (!valid) return bad("Identifiants incorrects.", 401);
   const raw = token();
   const sessionId = crypto.randomUUID();
+  const passwordUpgrade = passwordState.needsUpgrade ? { salt: token() } : null;
+  if (passwordUpgrade) passwordUpgrade.hash = await hashV2Password(password, passwordUpgrade.salt);
   await env.DB.batch([
     env.DB.prepare(
       "INSERT INTO v2_sessions(id,account_id,token_hash,expires_at) VALUES(?,?,?,datetime('now','+12 hours'))",
     ).bind(sessionId, account.id, await digest(raw + env.SESSION_PEPPER)),
-    env.DB.prepare("UPDATE v2_accounts SET last_login_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(account.id),
+    env.DB.prepare(passwordUpgrade
+      ? "UPDATE v2_accounts SET password_hash=?,password_salt=?,last_login_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?"
+      : "UPDATE v2_accounts SET last_login_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?")
+      .bind(...(passwordUpgrade ? [passwordUpgrade.hash, passwordUpgrade.salt, account.id] : [account.id])),
   ]);
   return json(
     {
@@ -177,7 +193,7 @@ export async function configureV2Admin(request, env) {
   if (collision) return bad("Cette identité est déjà utilisée.", 409);
   const id = existing?.id || crypto.randomUUID();
   const salt = password ? token() : existing.password_salt;
-  const hash = password ? await passwordHash(password, salt) : existing.password_hash;
+  const hash = password ? await hashV2Password(password, salt) : existing.password_hash;
   await env.DB.prepare(
     "INSERT INTO v2_accounts(id,role,first_name,last_name,first_name_normalized,last_name_normalized,password_hash,password_salt) VALUES(?,'admin',?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET first_name=excluded.first_name,last_name=excluded.last_name,first_name_normalized=excluded.first_name_normalized,last_name_normalized=excluded.last_name_normalized,password_hash=excluded.password_hash,password_salt=excluded.password_salt,account_status='active',updated_at=CURRENT_TIMESTAMP",
   ).bind(id, firstName, lastName, normalizeName(firstName), normalizeName(lastName), hash, salt).run();
