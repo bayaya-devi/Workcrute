@@ -32,7 +32,9 @@ async function digest(value) {
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
 }
-const PASSWORD_ITERATIONS = 600000;
+// Cloudflare Workers rejects the higher PBKDF2 cost under its execution budget.
+// Keep the established production cost so authentication remains available.
+const PASSWORD_ITERATIONS = 100000;
 const LEGACY_PASSWORD_ITERATIONS = 100000;
 
 export async function hashV2Password(password, salt, iterations = PASSWORD_ITERATIONS) {
